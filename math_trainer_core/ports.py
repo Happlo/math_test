@@ -1,13 +1,15 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Mapping, Protocol
+
 
 @dataclass(frozen=True)
 class Question:
-    a: int
-    b: int
-    display: str
+    display_question: str
     correct_answer: int
+    display_answer_text: str
+
 
 @dataclass(frozen=True)
 class ViewState:
@@ -16,12 +18,22 @@ class ViewState:
     streak: int
     input_enabled: bool
 
+
 class IRandom(Protocol):
     def randint(self, lo: int, hi: int) -> int: ...
 
-class IOperatorPlugin(Protocol):
-    # stable id for config: "plus", "minus", ...
-    def plugin_id(self) -> str: ...
 
-    # create a new question given constraints
-    def make_question(self, rng: IRandom, max_value: int, allow_negative: bool) -> Question: ...
+class IOperatorPlugin(Protocol):
+    def plugin_id(self) -> str: ...
+    def name(self) -> str: ...
+    def description(self) -> str: ...
+
+    # key/value defaults (your requirement)
+    def config_defaults(self) -> dict[str, Any]: ...
+
+    # optional: ui hints (still key/value-ish)
+    # example values: {"max_sum": {"type":"int","min":2,"max":50,"label":"Max summa"}}
+    def config_spec(self) -> dict[str, dict[str, Any]]: ...
+
+    # produce question using merged config
+    def make_question(self, rng: IRandom, config: Mapping[str, Any]) -> Question: ...

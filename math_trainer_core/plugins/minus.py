@@ -1,27 +1,63 @@
 from __future__ import annotations
 
-from ..ports import IOperatorPlugin, IRandom, Question
+from dataclasses import dataclass
+from typing import Any, Mapping
+
+from ..plugin_api import PluginInfo, IOperatorPlugin, IRandom, Question
+
+
+@dataclass(frozen=True)
+class MinusConfig:
+    max_value: int = 10
+    allow_negative: bool = False
 
 
 class MinusPlugin(IOperatorPlugin):
-    def plugin_id(self) -> str:
-        return "minus"
+    def __init__(self, cfg: MinusConfig):
+        self._cfg = cfg
 
-    def make_question(self, rng: IRandom, max_value: int, allow_negative: bool) -> Question:
-        max_v = max(1, max_value)
-        a = rng.randint(0, max_v)
+    def make_question(self, rng: IRandom) -> Question:
+        max_value = max(0, int(self._cfg.max_value))
+        allow_negative = bool(self._cfg.allow_negative)
 
-        if allow_negative:
-            b = rng.randint(0, max_v)
-        else:
-            b = rng.randint(0, a)
+        a = rng.randint(0, max_value)
+        b = rng.randint(0, max_value) if allow_negative else rng.randint(0, a)
+        result = a - b
 
         return Question(
-            a=a,
-            b=b,
-            display=f"{a} - {b} =",
-            correct_answer=a - b,
+            display_question=f"{a} - {b} =",
+            correct_answer=result,
+            display_answer_text=f"{a} - {b} = {result}",
         )
 
 
-PLUGIN = MinusPlugin()
+class MinusPluginFactory:
+    @staticmethod
+    def PluginInfo() -> PluginInfo:
+        return PluginInfo(
+            plugin_id="minus",
+            name="Subtraktion",
+            description="Träna på minus (val för negativa svar).",
+        )
+
+    @staticmethod
+    def PluginConfig() -> dict[str, Any]:
+        cfg = MinusConfig()
+        return {
+            "max_value": cfg.max_value,
+            "allow_negative": cfg.allow_negative,
+        }
+
+    @staticmethod
+    def CreatePlugin(config: Mapping[str, Any]) -> IOperatorPlugin:
+        defaults = MinusPluginFactory.PluginConfig()
+        merged = {**defaults, **dict(config)}
+
+        cfg = MinusConfig(
+            max_value=int(merged["max_value"]),
+            allow_negative=bool(merged["allow_negative"]),
+        )
+        return MinusPlugin(cfg)
+
+
+PLUGIN_FACTORY = MinusPluginFactory

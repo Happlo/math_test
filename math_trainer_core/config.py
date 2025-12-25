@@ -1,9 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import Any, Mapping
+
 
 @dataclass(frozen=True)
 class TrainerConfig:
     num_questions: int
-    max_value: int
-    operator_plugin: str     # e.g. "plus" or "minus"
-    allow_negative: bool = False
+    plugin_id: str
+    plugin_overrides: Mapping[str, Any]

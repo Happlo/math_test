@@ -1,23 +1,64 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
-from ..ports import IOperatorPlugin, IRandom, Question
+from dataclasses import dataclass
+from typing import Any, Mapping
+
+from ..plugin_api import PluginInfo, IOperatorPlugin, IRandom, Question
+
+
+@dataclass(frozen=True)
+class PlusConfig:
+    max_sum: int = 10
+    min_operand: int = 0
 
 
 class PlusPlugin(IOperatorPlugin):
-    def plugin_id(self) -> str:
-        return "plus"
+    def __init__(self, cfg: PlusConfig):
+        self._cfg = cfg
 
-    def make_question(self, rng: IRandom, max_value: int, allow_negative: bool) -> Question:
-        max_v = max(1, max_value)
-        a = rng.randint(0, max_v)
-        b = rng.randint(0, max_v - a)
+    def make_question(self, rng: IRandom) -> Question:
+        max_sum = max(0, int(self._cfg.max_sum))
+        min_op = max(0, int(self._cfg.min_operand))
+
+        a = rng.randint(min_op, max_sum)
+        b_max = max_sum - a
+        b = rng.randint(min_op, b_max) if b_max >= min_op else 0
+
         return Question(
-            a=a,
-            b=b,
-            display=f"{a} + {b} =",
+            display_question=f"{a} + {b} =",
             correct_answer=a + b,
+            display_answer_text=f"{a} + {b} = {a + b}",
         )
 
 
-PLUGIN = PlusPlugin()
+class PlusPluginFactory:
+    @staticmethod
+    def PluginInfo() -> PluginInfo:
+        return PluginInfo(
+            plugin_id="plus",
+            name="Addition",
+            description="Träna på plus med max-summa.",
+        )
+
+    @staticmethod
+    def PluginConfig() -> dict[str, Any]:
+        # Must include ALL keys with defaults
+        cfg = PlusConfig()
+        return {
+            "max_sum": cfg.max_sum,
+            "min_operand": cfg.min_operand,
+        }
+
+    @staticmethod
+    def CreatePlugin(config: Mapping[str, Any]) -> IOperatorPlugin:
+        defaults = PlusPluginFactory.PluginConfig()
+        merged = {**defaults, **dict(config)}
+
+        cfg = PlusConfig(
+            max_sum=int(merged["max_sum"]),
+            min_operand=int(merged["min_operand"]),
+        )
+        return PlusPlugin(cfg)
+
+
+PLUGIN_FACTORY = PlusPluginFactory
