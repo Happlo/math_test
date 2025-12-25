@@ -5,6 +5,28 @@ from PyQt6.QtCore import Qt
 
 from math_trainer_core.ports import ViewState
 
+STREAK_EMOJIS = {
+    1: "🌕",
+    2: "🦜",
+    3: "🌴",
+    4: "🪐",
+    5: "🐢",
+    6: "😃",
+    7: "🤓",
+    8: "🤩",
+    9: "😲",
+    12: "🤯",
+    30: "🥳🎈🎉🎊",
+}
+
+def get_streak_emoji(streak: int) -> str:
+    emoji = ""
+    for threshold in sorted(STREAK_EMOJIS.keys()):
+        if streak >= threshold:
+            emoji = STREAK_EMOJIS[threshold]
+        else:
+            break
+    return emoji
 
 class MathWindow(QWidget):
     def __init__(self, core):
@@ -30,11 +52,19 @@ class MathWindow(QWidget):
         self.feedback_label.setFont(QFont("Segoe UI Emoji", 18))
         layout.addWidget(self.feedback_label)
 
+        self.streak_label = QLabel("")
+        self.streak_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.streak_label.setFont(QFont("Segoe UI Emoji", 28))
+        layout.addWidget(self.streak_label)
+
         self.setLayout(layout)
 
     def render(self, state: ViewState) -> None:
         self.question_label.setText(state.question_text)
         self.feedback_label.setText(state.feedback_text)
+
+        emoji = get_streak_emoji(state.streak)
+        self.streak_label.setText(emoji)
 
         self.answer_edit.setDisabled(not state.input_enabled)
         if state.input_enabled:

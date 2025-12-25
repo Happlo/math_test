@@ -13,6 +13,7 @@ class Question:
 class ViewState:
     question_text: str
     feedback_text: str
+    streak: int
     input_enabled: bool
 
 class IRandom(Protocol):

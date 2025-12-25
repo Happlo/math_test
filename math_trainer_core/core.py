@@ -22,7 +22,7 @@ class MathTrainerCore:
         self._score = 0
         self._streak = 0
         self._current = None
-        return self._next_state(feedback="")
+        return self._next_state(feedback="", streak=self._streak)
 
     def submit_answer(self, text: str) -> ViewState:
         if self._config is None:
@@ -45,13 +45,13 @@ class MathTrainerCore:
             feedback = f"Fel ❌  Rätt svar: {self._current.correct_answer}"
             self._streak = 0
 
-        return self._next_state(feedback=feedback)
+        return self._next_state(feedback=feedback, streak=self._streak)
 
     def _is_finished(self) -> bool:
         assert self._config is not None
         return self._index >= self._config.num_questions
 
-    def _next_state(self, feedback: str) -> ViewState:
+    def _next_state(self, feedback: str, streak: int) -> ViewState:
         assert self._config is not None
         if self._is_finished():
             return self._finished_state()
@@ -67,6 +67,7 @@ class MathTrainerCore:
         return ViewState(
             question_text=f"Fråga {self._index}:\n{q.display}",
             feedback_text=feedback,
+            streak=streak,
             input_enabled=True,
         )
 
