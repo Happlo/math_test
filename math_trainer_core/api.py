@@ -5,7 +5,7 @@ from typing import Any
 
 from .plugin_loader import load_plugin_factories
 from .core import MathTrainerCore
-from .plugin_api import IRandom, PluginInfo
+from .plugin_api import PluginInfo
 
 
 @dataclass(frozen=True)

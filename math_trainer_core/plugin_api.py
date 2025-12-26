@@ -10,11 +10,6 @@ class PluginInfo:
     name: str
     description: str
 
-
-class IRandom(Protocol):
-    def randint(self, lo: int, hi: int) -> int: ...
-
-
 @dataclass(frozen=True)
 class Question:
     display_question: str

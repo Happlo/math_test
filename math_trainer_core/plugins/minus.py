@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 import random
 
-from ..plugin_api import PluginInfo, IOperatorPlugin, IRandom, Question
+from ..plugin_api import PluginInfo, IOperatorPlugin, Question
 
 
 @dataclass(frozen=True)

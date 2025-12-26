@@ -5,7 +5,7 @@ from typing import Optional, List
 from .ports import Progress, ViewState
 
 
-from .plugin_api import IRandom, IOperatorPlugin, Question
+from .plugin_api import IOperatorPlugin, Question
 
 @dataclass(frozen=True)
 class TrainerConfig:
