@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
+from enum import Enum, auto
 
 
 @dataclass(frozen=True)
@@ -11,13 +12,18 @@ class Question:
     display_answer_text: str
 
 
+class Progress(Enum):
+    PENDING = auto()
+    CORRECT = auto()
+    WRONG = auto()
+
 @dataclass(frozen=True)
 class ViewState:
     question_text: str
     feedback_text: str
     streak: int
+    progress: list[Progress]
     input_enabled: bool
-
 
 class IRandom(Protocol):
     def randint(self, lo: int, hi: int) -> int: ...

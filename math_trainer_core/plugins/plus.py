@@ -2,27 +2,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping
+import random
 
 from ..plugin_api import PluginInfo, IOperatorPlugin, IRandom, Question
 
 
 @dataclass(frozen=True)
 class PlusConfig:
-    max_sum: int = 10
-    min_operand: int = 0
+    max_sum: int = 20
+    min_operand: int = 2
 
 
 class PlusPlugin(IOperatorPlugin):
     def __init__(self, cfg: PlusConfig):
         self._cfg = cfg
 
-    def make_question(self, rng: IRandom) -> Question:
+    def make_question(self) -> Question:
         max_sum = max(0, int(self._cfg.max_sum))
         min_op = max(0, int(self._cfg.min_operand))
 
-        a = rng.randint(min_op, max_sum)
+        a = random.randint(min_op, max_sum)
         b_max = max_sum - a
-        b = rng.randint(min_op, b_max) if b_max >= min_op else 0
+        b = random.randint(min_op, b_max) if b_max >= min_op else 0
 
         return Question(
             display_question=f"{a} + {b} =",

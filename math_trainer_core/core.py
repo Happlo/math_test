@@ -1,18 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
+from .ports import Progress, ViewState
+
 
 from .plugin_api import IRandom, IOperatorPlugin, Question
-
-
-@dataclass(frozen=True)
-class ViewState:
-    question_text: str
-    feedback_text: str
-    streak: int
-    input_enabled: bool
-
 
 @dataclass(frozen=True)
 class TrainerConfig:
@@ -20,8 +13,7 @@ class TrainerConfig:
 
 
 class MathTrainerCore:
-    def __init__(self, rng: IRandom, plugin: IOperatorPlugin):
-        self._rng = rng
+    def __init__(self, plugin: IOperatorPlugin):
         self._plugin = plugin
 
         self._cfg: Optional[TrainerConfig] = None
@@ -37,14 +29,12 @@ class MathTrainerCore:
         self._score = 0
         self._streak = 0
         self._current = None
-        return self._next_state(feedback="")
+        self._progress = [Progress.PENDING] * cfg.num_questions
+        return self._next_question(feedback="")
 
     def submit_answer(self, text: str) -> ViewState:
         if self._cfg is None:
             return ViewState("Not started", "Call start(config) first", 0, False)
-
-        if self._index >= self._cfg.num_questions:
-            return self._finished_state()
 
         assert self._current is not None
 
@@ -55,40 +45,44 @@ class MathTrainerCore:
                 question_text=self._current.display_question,
                 feedback_text="Skriv en siffra! 🙃",
                 streak=self._streak,
+                progress=list(self._progress),
                 input_enabled=True,
             )
 
         if value == self._current.correct_answer:
             self._score += 1
             self._streak += 1
-            feedback = f"Rätt! ⭐  Streak: {self._streak}"
+            self._progress[self._index - 1] = Progress.CORRECT
+            feedback = f"Rätt! ⭐ Antal rätt: {self._score} Streak: {self._streak}"
         else:
             feedback = f"Fel ❌  {self._current.display_answer_text}"
             self._streak = 0
-
-        return self._next_state(feedback=feedback)
-
-    def _next_state(self, feedback: str) -> ViewState:
-        assert self._cfg is not None
+            self._progress[self._index - 1] = Progress.WRONG
 
         if self._index >= self._cfg.num_questions:
             return self._finished_state()
 
+        return self._next_question(feedback=feedback)
+
+
+    def _next_question(self, feedback: str) -> ViewState:
         self._index += 1
-        self._current = self._plugin.make_question(self._rng)
+        self._current = self._plugin.make_question()
 
         return ViewState(
             question_text=f"Fråga {self._index}:\n{self._current.display_question}",
             feedback_text=feedback,
             streak=self._streak,
+            progress=list(self._progress),
             input_enabled=True,
         )
 
+
     def _finished_state(self) -> ViewState:
-        assert self._cfg is not None
         return ViewState(
             question_text=f"Klart! Du fick {self._score} av {self._cfg.num_questions} rätt.",
             feedback_text="",
             streak=self._streak,
+            progress=list(self._progress),
             input_enabled=False,
         )

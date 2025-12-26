@@ -1,9 +1,9 @@
 from __future__ import annotations
-from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QVBoxLayout, QGridLayout
 from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
-from math_trainer_core.ports import ViewState
+from math_trainer_core.ports import ViewState, Progress
 
 STREAK_EMOJIS = {
     1: "🌕",
@@ -27,6 +27,8 @@ def get_streak_emoji(streak: int) -> str:
         else:
             break
     return emoji
+
+
 
 class MathWindow(QWidget):
     def __init__(self, core):
@@ -56,6 +58,11 @@ class MathWindow(QWidget):
         self.streak_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.streak_label.setFont(QFont("Segoe UI Emoji", 28))
         layout.addWidget(self.streak_label)
+        
+        self.progress_container = QWidget()
+        self.progress_layout = QGridLayout(self.progress_container)
+        self.progress_layout.setSpacing(4)
+        layout.addWidget(self.progress_container)
 
         self.setLayout(layout)
 
@@ -66,11 +73,36 @@ class MathWindow(QWidget):
         emoji = get_streak_emoji(state.streak)
         self.streak_label.setText(emoji)
 
+        self._render_progress_grid(state.progress)
+
         self.answer_edit.setDisabled(not state.input_enabled)
         if state.input_enabled:
             self.answer_edit.clear()
             self.answer_edit.setFocus()
 
+
     def _on_enter(self) -> None:
         state = self._core.submit_answer(self.answer_edit.text())
         self.render(state)
+
+    def _render_progress_grid(self, progress: list[Progress]) -> None:
+        # clear previous widgets
+        while self.progress_layout.count():
+            item = self.progress_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        symbols = {
+            Progress.PENDING: "⬜",
+            Progress.CORRECT: "🟩",
+            Progress.WRONG: "🟥",
+        }
+
+        columns = max(1, self.width() // 28)  # responsive to window width
+
+        for i, p in enumerate(progress):
+            row = i // columns
+            col = i % columns
+            lbl = QLabel(symbols[p])
+            lbl.setFont(QFont("Segoe UI Emoji", 14))
+            self.progress_layout.addWidget(lbl, row, col)

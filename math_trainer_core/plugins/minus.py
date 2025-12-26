@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Mapping
+import random
 
 from ..plugin_api import PluginInfo, IOperatorPlugin, IRandom, Question
 
@@ -16,12 +17,12 @@ class MinusPlugin(IOperatorPlugin):
     def __init__(self, cfg: MinusConfig):
         self._cfg = cfg
 
-    def make_question(self, rng: IRandom) -> Question:
+    def make_question(self) -> Question:
         max_value = max(0, int(self._cfg.max_value))
         allow_negative = bool(self._cfg.allow_negative)
 
-        a = rng.randint(0, max_value)
-        b = rng.randint(0, max_value) if allow_negative else rng.randint(0, a)
+        a = random.randint(0, max_value)
+        b = random.randint(0, max_value) if allow_negative else random.randint(0, a)
         result = a - b
 
         return Question(
