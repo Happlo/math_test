@@ -21,9 +21,9 @@ class PlusPlugin(IOperatorPlugin):
         max_sum = max(0, int(self._cfg.max_sum))
         min_op = max(0, int(self._cfg.min_operand))
 
-        a = random.randint(min_op, max_sum)
+        a = random.randint(min_op, max_sum - min_op)
         b_max = max_sum - a
-        b = random.randint(min_op, b_max) if b_max >= min_op else 0
+        b = random.randint(min_op, b_max)
 
         return Question(
             display_question=f"{a} + {b} =",
@@ -43,7 +43,6 @@ class PlusPluginFactory:
 
     @staticmethod
     def PluginConfig() -> dict[str, Any]:
-        # Must include ALL keys with defaults
         cfg = PlusConfig()
         return {
             "max_sum": cfg.max_sum,
