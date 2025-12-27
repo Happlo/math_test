@@ -4,6 +4,7 @@ from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt
 
 from math_trainer_core.ports import ViewState, Progress
+from math_trainer_core.core import MathTrainerCore
 
 STREAK_EMOJIS = {
     1: "🌕",
@@ -33,7 +34,7 @@ def get_streak_emoji(streak: int) -> str:
 class MathWindow(QWidget):
     def __init__(self, core):
         super().__init__()
-        self._core = core
+        self._core : MathTrainerCore = core
 
         self.setWindowTitle("Matteträning")
         layout = QVBoxLayout()
@@ -82,7 +83,7 @@ class MathWindow(QWidget):
 
 
     def _on_enter(self) -> None:
-        state = self._core.submit_answer(self.answer_edit.text())
+        state : ViewState = self._core.submit_answer(self.answer_edit.text())
         self.render(state)
 
     def _render_progress_grid(self, progress: list[Progress]) -> None:

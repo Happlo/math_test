@@ -3,20 +3,9 @@ from __future__ import annotations
 import importlib
 import pkgutil
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Type, Protocol
+from typing import Any, Dict, Type
 
-from .plugin_api import PluginInfo, IOperatorPlugin
-
-
-class IPluginFactory(Protocol):
-    @staticmethod
-    def PluginInfo() -> PluginInfo: ...
-
-    @staticmethod
-    def PluginConfig() -> dict[str, Any]: ...
-
-    @staticmethod
-    def CreatePlugin(config: Mapping[str, Any]) -> IOperatorPlugin: ...
+from .plugin_api import PluginInfo, IPluginFactory
 
 
 @dataclass(frozen=True)
@@ -34,7 +23,7 @@ def load_plugin_factories() -> Dict[str, LoadedPlugin]:
 
     for mod in pkgutil.iter_modules(package.__path__):
         module = importlib.import_module(f"{plugins_pkg}.{mod.name}")
-        factory = getattr(module, "PLUGIN_FACTORY", None)
+        factory : IPluginFactory = getattr(module, "PLUGIN_FACTORY", None)
         if factory is None:
             continue
 

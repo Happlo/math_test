@@ -5,7 +5,7 @@ from typing import Optional, List
 from .ports import Progress, ViewState
 
 
-from .plugin_api import IOperatorPlugin, Question
+from .plugin_api import Plugin, Question, AnswerResult
 
 @dataclass(frozen=True)
 class TrainerConfig:
@@ -13,7 +13,7 @@ class TrainerConfig:
 
 
 class MathTrainerCore:
-    def __init__(self, plugin: IOperatorPlugin):
+    def __init__(self, plugin: Plugin):
         self._plugin = plugin
 
         self._cfg: Optional[TrainerConfig] = None
@@ -33,31 +33,26 @@ class MathTrainerCore:
         return self._next_question(feedback="")
 
     def submit_answer(self, text: str) -> ViewState:
-        if self._cfg is None:
-            return ViewState("Not started", "Call start(config) first", 0, False)
+        qr = self._current.answer_question(text)
 
-        assert self._current is not None
-
-        try:
-            value = int(text)
-        except ValueError:
+        if qr.result == AnswerResult.INVALID_INPUT:
             return ViewState(
-                question_text=self._current.display_question,
+                question_text=self._current.read_question(),
                 feedback_text="Skriv en siffra! 🙃",
                 streak=self._streak,
                 progress=list(self._progress),
                 input_enabled=True,
             )
 
-        if value == self._current.correct_answer:
+        if qr.result == AnswerResult.CORRECT:
             self._score += 1
             self._streak += 1
             self._progress[self._index - 1] = Progress.CORRECT
             feedback = f"Rätt! ⭐ Antal rätt: {self._score} Streak: {self._streak}"
-        else:
-            feedback = f"Fel ❌  {self._current.display_answer_text}"
+        else:  # WRONG
             self._streak = 0
             self._progress[self._index - 1] = Progress.WRONG
+            feedback = f"Fel ❌  {qr.display_answer_text}"
 
         if self._index >= self._cfg.num_questions:
             return self._finished_state()
@@ -70,7 +65,7 @@ class MathTrainerCore:
         self._current = self._plugin.make_question()
 
         return ViewState(
-            question_text=f"Fråga {self._index}:\n{self._current.display_question}",
+            question_text=f"Fråga {self._index}:\n{self._current.read_question()}",
             feedback_text=feedback,
             streak=self._streak,
             progress=list(self._progress),

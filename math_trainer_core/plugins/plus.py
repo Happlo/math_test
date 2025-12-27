@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 import random
 
-from ..plugin_api import PluginInfo, IOperatorPlugin, Question
+from ..plugin_api import (
+    AnswerResult,
+    Plugin,
+    Question,
+    PluginInfo,
+    QuestionResult,
+)
 
 
 @dataclass(frozen=True)
@@ -13,7 +19,30 @@ class PlusConfig:
     min_operand: int = 2
 
 
-class PlusPlugin(IOperatorPlugin):
+@dataclass(frozen=True)
+class PlusQuestion(Question):
+    a: int
+    b: int
+
+    def read_question(self) -> str:
+        return f"{self.a} + {self.b} ="
+
+    def answer_question(self, answer: str) -> QuestionResult:
+        correct = self.a + self.b
+        display = f"{self.a} + {self.b} = {correct}"
+
+        try:
+            value = int(answer.strip())
+        except ValueError:
+            return QuestionResult(AnswerResult.INVALID_INPUT, display)
+
+        if value == correct:
+            return QuestionResult(AnswerResult.CORRECT, display)
+
+        return QuestionResult(AnswerResult.WRONG, display)
+
+
+class PlusPlugin(Plugin):
     def __init__(self, cfg: PlusConfig):
         self._cfg = cfg
 
@@ -22,14 +51,9 @@ class PlusPlugin(IOperatorPlugin):
         min_op = max(0, int(self._cfg.min_operand))
 
         a = random.randint(min_op, max_sum - min_op)
-        b_max = max_sum - a
-        b = random.randint(min_op, b_max)
+        b = random.randint(min_op, max_sum - a)
 
-        return Question(
-            display_question=f"{a} + {b} =",
-            correct_answer=a + b,
-            display_answer_text=f"{a} + {b} = {a + b}",
-        )
+        return PlusQuestion(a=a, b=b)
 
 
 class PlusPluginFactory:
@@ -50,7 +74,7 @@ class PlusPluginFactory:
         }
 
     @staticmethod
-    def CreatePlugin(config: Mapping[str, Any]) -> IOperatorPlugin:
+    def CreatePlugin(config: Mapping[str, Any]) -> Plugin:
         defaults = PlusPluginFactory.PluginConfig()
         merged = {**defaults, **dict(config)}
 

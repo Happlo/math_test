@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 import random
 
-from ..plugin_api import PluginInfo, IOperatorPlugin, Question
+from ..plugin_api import (
+    AnswerResult,
+    Plugin,
+    Question,
+    PluginInfo,
+    QuestionResult,
+)
 
 
 @dataclass(frozen=True)
@@ -13,7 +19,30 @@ class MinusConfig:
     allow_negative: bool = False
 
 
-class MinusPlugin(IOperatorPlugin):
+@dataclass(frozen=True)
+class MinusQuestion(Question):
+    a: int
+    b: int
+
+    def read_question(self) -> str:
+        return f"{self.a} - {self.b} ="
+
+    def answer_question(self, answer: str) -> QuestionResult:
+        correct = self.a - self.b
+        display = f"{self.a} - {self.b} = {correct}"
+
+        try:
+            value = int(answer.strip())
+        except ValueError:
+            return QuestionResult(AnswerResult.INVALID_INPUT, display)
+
+        if value == correct:
+            return QuestionResult(AnswerResult.CORRECT, display)
+
+        return QuestionResult(AnswerResult.WRONG, display)
+
+
+class MinusPlugin(Plugin):
     def __init__(self, cfg: MinusConfig):
         self._cfg = cfg
 
@@ -23,13 +52,8 @@ class MinusPlugin(IOperatorPlugin):
 
         a = random.randint(0, max_value)
         b = random.randint(0, max_value) if allow_negative else random.randint(0, a)
-        result = a - b
 
-        return Question(
-            display_question=f"{a} - {b} =",
-            correct_answer=result,
-            display_answer_text=f"{a} - {b} = {result}",
-        )
+        return MinusQuestion(a=a, b=b)
 
 
 class MinusPluginFactory:
@@ -50,7 +74,7 @@ class MinusPluginFactory:
         }
 
     @staticmethod
-    def CreatePlugin(config: Mapping[str, Any]) -> IOperatorPlugin:
+    def CreatePlugin(config: Mapping[str, Any]) -> Plugin:
         defaults = MinusPluginFactory.PluginConfig()
         merged = {**defaults, **dict(config)}
 
