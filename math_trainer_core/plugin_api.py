@@ -11,7 +11,7 @@ class PluginInfo:
     name: str
     description: str
 
-class IPluginFactory(Protocol):
+class PluginFactory(Protocol):
     @staticmethod
     def PluginInfo() -> PluginInfo: ...
 

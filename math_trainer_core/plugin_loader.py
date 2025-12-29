@@ -5,14 +5,14 @@ import pkgutil
 from dataclasses import dataclass
 from typing import Any, Dict, Type
 
-from .plugin_api import PluginInfo, IPluginFactory
+from .plugin_api import PluginInfo, PluginFactory
 
 
 @dataclass(frozen=True)
 class LoadedPlugin:
     info: PluginInfo
     default_config: dict[str, Any]
-    factory: Type[IPluginFactory]
+    factory: Type[PluginFactory]
 
 
 def load_plugin_factories() -> Dict[str, LoadedPlugin]:
@@ -23,7 +23,7 @@ def load_plugin_factories() -> Dict[str, LoadedPlugin]:
 
     for mod in pkgutil.iter_modules(package.__path__):
         module = importlib.import_module(f"{plugins_pkg}.{mod.name}")
-        factory : IPluginFactory = getattr(module, "PLUGIN_FACTORY", None)
+        factory : PluginFactory = getattr(module, "PLUGIN_FACTORY", None)
         if factory is None:
             continue
 

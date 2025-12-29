@@ -30,7 +30,9 @@ def main() -> int:
     window.resize(420, 280)
     window.show()
 
-    window.render(core.start(TrainerConfig(num_questions=choice.num_questions)))
+    # window.render(core.start(TrainerConfig(num_questions=choice.num_questions)))
+    step = core.start(TrainerConfig(num_questions=choice.num_questions))
+    window.set_step(step)
     return app.exec()
 
 
