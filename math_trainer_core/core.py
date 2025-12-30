@@ -2,169 +2,120 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Optional
+import time
 
-from .ports import FeedbackStep, Finished, Progress, QuestionStep, Step, ViewState
-from .plugin_api import Plugin, AnswerResult, Question
-
-
-@dataclass(frozen=True)
-class TrainerConfig:
-    num_questions: int
-    time_limit_ms: Optional[int] = None  # None => no timer
+from .api_types import Progress, View, State, QuestionState, FeedbackState, FinishedState, TrainerConfig
+from .plugin_api import Plugin, AnswerResult, QuestionResult
 
 
-class MathTrainerCore:
-    def __init__(self, plugin: Plugin):
+def _now_ms() -> int:
+    return int(time.monotonic() * 1000)
+
+
+class FinishedImpl(FinishedState):
+    def __init__(self, view: View):
+        self.view = view  # keep name consistent with your ports (state or view)
+
+def next_question(view: View, plugin: Plugin, config: TrainerConfig) -> State:
+    # advance to next question
+    view.question_idx += 1
+
+    if view.question_idx >= len(view.progress):
+        view.question_text = f"Klart! Du fick {view.score} av {len(view.progress)} rätt."
+        view.feedback_text = ""
+        view.input_enabled = False
+        view.remaining_ms = None
+        return FinishedImpl(view)
+
+    return QuestionImpl(view=view, plugin=plugin, config=config)
+
+
+class FeedbackImpl(FeedbackState):
+    def __init__(self, view: View, plugin: Plugin, config: TrainerConfig):
+        self.view = view
         self._plugin = plugin
+        self._config = config
+        self.state = view
 
-        self._cfg: Optional[TrainerConfig] = None
-        self._index = 0  # 1-based question number when a question is active
-        self._score = 0
-        self._streak = 0
-        self._progress: list[Progress] = []
-        self._current: Optional[Question] = None
+        self.view.input_enabled = False
+        self.view.remaining_ms = None
 
-        # Timer (optional). If you don’t want it yet, keep it unused.
-        self._deadline_ms: Optional[int] = None
+    def next(self) -> State:
+        return next_question(view=self.view, plugin=self._plugin, config=self._config)
 
-    def start(self, cfg: TrainerConfig) -> Step:
-        self._cfg = cfg
-        self._index = 0
-        self._score = 0
-        self._streak = 0
-        self._progress = [Progress.PENDING] * cfg.num_questions
-        self._current = None
-        self._deadline_ms = None
 
-        return self._enter_next_question(feedback="")
+class QuestionImpl(QuestionState):
+    def __init__(self, view: View, plugin: Plugin, config: TrainerConfig):
+        self.view = view
+        self._plugin = plugin
+        self._config = config
+        self.state = view
 
-    # ---------- transitions (private) ----------
+        self._question = plugin.make_question()
 
-    def _enter_next_question(self, feedback: str) -> Step:
-        assert self._cfg is not None
+        self.view.question_text = f"Fråga {self.view.question_idx + 1}:\n{self._question.read_question()}"
+        self.view.input_enabled = True
 
-        if self._index >= self._cfg.num_questions:
-            return self._finished_step()
-
-        self._index += 1
-        self._current = self._plugin.make_question()
-
-        # Timer: set deadline here when you add a clock.
-        # if self._cfg.time_limit_ms:
-        #     self._deadline_ms = now_ms + self._cfg.time_limit_ms
-        # else:
-        self._deadline_ms = None
-
-        state = ViewState(
-            question_text=f"Fråga {self._index}:\n{self._current.read_question()}",
-            feedback_text=feedback,
-            streak=self._streak,
-            progress=list(self._progress),
-            input_enabled=True,
-            remaining_ms=None,
-        )
-        return _QuestionStepImpl(core=self, state=state)
-
-    def _enter_feedback(self, feedback: str, input_enabled: bool = False) -> Step:
-        assert self._cfg is not None
-        assert self._current is not None
-
-        state = ViewState(
-            question_text=f"Fråga {self._index}:\n{self._current.read_question()}",
-            feedback_text=feedback,
-            streak=self._streak,
-            progress=list(self._progress),
-            input_enabled=input_enabled,
-            remaining_ms=None,
-        )
-        return _FeedbackStepImpl(core=self, state=state)
-
-    def _finished_step(self) -> Finished:
-        assert self._cfg is not None
-        state = ViewState(
-            question_text=f"Klart! Du fick {self._score} av {self._cfg.num_questions} rätt.",
-            feedback_text="",
-            streak=self._streak,
-            progress=list(self._progress),
-            input_enabled=False,
-            remaining_ms=None,
-        )
-        return Finished(state=state)
-
-    # ---------- actions called by steps (private) ----------
-
-    def _answer_current(self, raw_answer: str) -> Step:
-        assert self._cfg is not None
-        assert self._current is not None
-
-        qr = self._current.answer_question(raw_answer)
-
-        if qr.result == AnswerResult.INVALID_INPUT:
-            # stay on question, don’t advance
-            state = ViewState(
-                question_text=f"Fråga {self._index}:\n{self._current.read_question()}",
-                feedback_text="Skriv en siffra! 🙃",
-                streak=self._streak,
-                progress=list(self._progress),
-                input_enabled=True,
-                remaining_ms=None,
-            )
-            return _QuestionStepImpl(core=self, state=state)
-
-        # mark progress
-        idx0 = self._index - 1
-
-        if qr.result == AnswerResult.CORRECT:
-            self._score += 1
-            self._streak += 1
-            self._progress[idx0] = Progress.CORRECT
-            feedback = f"Rätt! ⭐ Antal rätt: {self._score} Streak: {self._streak}"
+        if config.time_limit_ms is not None and config.time_limit_ms > 0:
+            self._deadline_ms = _now_ms() + config.time_limit_ms
+            self.view.remaining_ms = config.time_limit_ms
         else:
-            self._streak = 0
-            self._progress[idx0] = Progress.WRONG
-            feedback = f"Fel ❌  {qr.display_answer_text}"
+            self._deadline_ms = None
+            self.view.remaining_ms = None
 
-        # Important: do NOT auto-advance. Enter feedback step, wait for next().
-        self._deadline_ms = None
-        return self._enter_feedback(feedback=feedback)
+    def answer(self, raw_answer: str) -> State:
+        # if timed out, go to feedback first
+        if self._deadline_ms is not None and _now_ms() >= self._deadline_ms:
+            return self._timeout()
 
-    def _refresh_current(self) -> Step:
-        # Timer handling goes here later. For now: no-op, stay in question.
-        assert self._cfg is not None
-        assert self._current is not None
+        result: QuestionResult = self._question.answer_question(raw_answer)
 
-        state = ViewState(
-            question_text=f"Fråga {self._index}:\n{self._current.read_question()}",
-            feedback_text="",  # keep whatever? you can keep last feedback if you want
-            streak=self._streak,
-            progress=list(self._progress),
-            input_enabled=True,
-            remaining_ms=None,
-        )
-        return _QuestionStepImpl(core=self, state=state)
+        if result.result == AnswerResult.INVALID_INPUT:
+            self.view.feedback_text = "Skriv en siffra! 🙃"
+            return self  # stay in question state
 
-    def _next_after_feedback(self) -> Step:
-        # Called when user presses Next after seeing feedback
-        return self._enter_next_question(feedback="")
+        if result.result == AnswerResult.CORRECT:
+            self.view.score += 1
+            self.view.streak += 1
+            self.view.progress[self.view.question_idx] = Progress.CORRECT
+            self.view.feedback_text = f"Rätt! ⭐ Antal rätt: {self.view.score} Streak: {self.view.streak}"
+            return next_question(view=self.view, plugin=self._plugin, config=self._config)
+        else:  # WRONG
+            self.view.streak = 0
+            self.view.progress[self.view.question_idx] = Progress.WRONG
+            self.view.feedback_text = f"Fel ❌  {result.display_answer_text}"
 
-# ---------- step implementations (private classes) ----------
+        return FeedbackImpl(view=self.view, plugin=self._plugin, config=self._config)
 
-@dataclass(frozen=True)
-class _QuestionStepImpl(QuestionStep):
-    core: MathTrainerCore
-    state: ViewState
+    def refresh(self) -> State:
+        if self._deadline_ms is None:
+            return self
 
-    def answer(self, raw_answer: str) -> Step:
-        return self.core._answer_current(raw_answer)
+        remaining = self._deadline_ms - _now_ms()
+        if remaining <= 0:
+            return self._timeout()
 
-    def refresh(self) -> Step:
-        return self.core._refresh_current()
+        self.view.remaining_ms = remaining
+        return self
+
+    def _timeout(self) -> State:
+        self.view.streak = 0
+        self.view.progress[self.view.question_idx] = Progress.TIMED_OUT
+        self.view.feedback_text = "Tiden är slut! ⏰"
+        self.view.remaining_ms = None
+        return FeedbackImpl(view=self.view, plugin=self._plugin, config=self._config)
 
 
-@dataclass(frozen=True)
-class _FeedbackStepImpl(FeedbackStep):
-    core: MathTrainerCore
-    state: ViewState
-
-    def next(self) -> Step:
-        return self.core._next_after_feedback()
+def Start(plugin: Plugin, config: TrainerConfig) -> State:
+    # mutable view, owned by states
+    view = View(
+        question_idx=0,
+        question_text="",
+        feedback_text="",
+        streak=0,
+        score=0,
+        progress=[Progress.PENDING] * config.num_questions,
+        input_enabled=True,
+        remaining_ms=None,
+    )
+    return QuestionImpl(view=view, plugin=plugin, config=config)

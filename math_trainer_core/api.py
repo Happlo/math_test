@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Protocol, Union
+from enum import Enum, auto
 
 from .plugin_loader import load_plugin_factories
-from .core import MathTrainerCore
 from .plugin_api import PluginInfo
-
-
-@dataclass(frozen=True)
-class Mode:
-    mode_id: str
-    name: str
-    description: str
+from .core import Start
+from .api_types import Mode, TrainerConfig, QuestionState, State
 
 
 class CoreApi:
@@ -30,8 +25,8 @@ class CoreApi:
         return dict(plugins[mode_id].factory.PluginConfig())
 
     @staticmethod
-    def Create(mode_id: str, overrides: dict[str, Any]) -> MathTrainerCore:
+    def Start(config: TrainerConfig, mode_id: str, overrides: dict[str, Any]) -> QuestionState:
         plugins = load_plugin_factories()
         loaded = plugins[mode_id]
         plugin_instance = loaded.factory.CreatePlugin(overrides)
-        return MathTrainerCore(plugin=plugin_instance)
+        return Start(plugin=plugin_instance, config=config)

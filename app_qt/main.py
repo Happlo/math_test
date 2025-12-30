@@ -21,18 +21,18 @@ def main() -> int:
 
     choice = dlg.selection()
 
-    core = CoreApi.Create(
+    question_state = CoreApi.Start(
         mode_id=choice.mode_id,
+        config=TrainerConfig(num_questions=choice.num_questions),
         overrides=choice.overrides,
     )
 
-    window = MathWindow(core)
+    window = MathWindow(question_state)
     window.resize(420, 280)
     window.show()
 
     # window.render(core.start(TrainerConfig(num_questions=choice.num_questions)))
-    step = core.start(TrainerConfig(num_questions=choice.num_questions))
-    window.set_step(step)
+    #window.set_step(step)
     return app.exec()
 
 
