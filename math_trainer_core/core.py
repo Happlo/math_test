@@ -4,13 +4,12 @@ from dataclasses import dataclass
 from typing import Optional
 import time
 
-from .api_types import Progress, View, State, QuestionState, FeedbackState, FinishedState, TrainerConfig
+from .api_types import Progress, View, State, QuestionState, FeedbackState, FinishedState, TrainerConfig, QuestionTime
 from .plugin_api import Plugin, AnswerResult, QuestionResult
 
 
 def _now_ms() -> int:
     return int(time.monotonic() * 1000)
-
 
 class FinishedImpl(FinishedState):
     def __init__(self, view: View):
@@ -24,7 +23,7 @@ def next_question(view: View, plugin: Plugin, config: TrainerConfig) -> State:
         view.question_text = f"Klart! Du fick {view.score} av {len(view.progress)} rätt."
         view.feedback_text = ""
         view.input_enabled = False
-        view.remaining_ms = None
+        view.time = None
         return FinishedImpl(view)
 
     return QuestionImpl(view=view, plugin=plugin, config=config)
@@ -38,7 +37,7 @@ class FeedbackImpl(FeedbackState):
         self.state = view
 
         self.view.input_enabled = False
-        self.view.remaining_ms = None
+        self.view.time = None
 
     def next(self) -> State:
         return next_question(view=self.view, plugin=self._plugin, config=self._config)
@@ -56,12 +55,12 @@ class QuestionImpl(QuestionState):
         self.view.question_text = f"Fråga {self.view.question_idx + 1}:\n{self._question.read_question()}"
         self.view.input_enabled = True
 
-        if config.time_limit_ms is not None and config.time_limit_ms > 0:
+        if self._config.time_limit_ms is not None:
             self._deadline_ms = _now_ms() + config.time_limit_ms
-            self.view.remaining_ms = config.time_limit_ms
+            self.view.time = QuestionTime(time_per_question_ms=config.time_limit_ms, time_left_ms=config.time_limit_ms)
         else:
             self._deadline_ms = None
-            self.view.remaining_ms = None
+            self.view.time = None
 
     def answer(self, raw_answer: str) -> State:
         # if timed out, go to feedback first
@@ -95,14 +94,14 @@ class QuestionImpl(QuestionState):
         if remaining <= 0:
             return self._timeout()
 
-        self.view.remaining_ms = remaining
+        self.view.time.time_left_ms = remaining
         return self
 
     def _timeout(self) -> State:
         self.view.streak = 0
         self.view.progress[self.view.question_idx] = Progress.TIMED_OUT
         self.view.feedback_text = "Tiden är slut! ⏰"
-        self.view.remaining_ms = None
+        self.view.time = None
         return FeedbackImpl(view=self.view, plugin=self._plugin, config=self._config)
 
 
@@ -116,6 +115,6 @@ def Start(plugin: Plugin, config: TrainerConfig) -> State:
         score=0,
         progress=[Progress.PENDING] * config.num_questions,
         input_enabled=True,
-        remaining_ms=None,
+        time=None,
     )
     return QuestionImpl(view=view, plugin=plugin, config=config)

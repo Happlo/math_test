@@ -23,7 +23,7 @@ def main() -> int:
 
     question_state = CoreApi.Start(
         mode_id=choice.mode_id,
-        config=TrainerConfig(num_questions=choice.num_questions),
+        config=TrainerConfig(num_questions=choice.num_questions, time_limit_ms=choice.timer_seconds*1000),
         overrides=choice.overrides,
     )
 

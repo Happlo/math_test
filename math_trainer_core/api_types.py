@@ -11,6 +11,11 @@ class Progress(Enum):
     TIMED_OUT = auto()
 
 @dataclass
+class QuestionTime:
+    time_per_question_ms: int
+    time_left_ms: int
+
+@dataclass
 class View:
     question_text: str
     feedback_text: str
@@ -19,8 +24,7 @@ class View:
     progress: list[Progress]
     question_idx: int
     input_enabled: bool
-    remaining_ms: Optional[int]
-
+    time: Optional[QuestionTime]
 
 class QuestionState(Protocol):
     view: View

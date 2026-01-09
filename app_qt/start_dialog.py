@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QLabel, QPlain
 class StartSelection:
     mode_id: str
     num_questions: int
+    timer_seconds: int  # 0 = no timer
     overrides: dict[str, Any]
 
 
@@ -39,6 +40,16 @@ class StartDialog(QDialog):
         qrow.addStretch(1)
         root.addLayout(qrow)
 
+        trow = QHBoxLayout()
+        trow.addWidget(QLabel("Timer per fråga (sek):"))
+        self.timer_seconds = QSpinBox()
+        self.timer_seconds.setRange(0, 3600)  # 0 = off
+        self.timer_seconds.setValue(0)
+        trow.addWidget(self.timer_seconds)
+        trow.addStretch(1)
+        root.addLayout(trow)
+
+
         root.addWidget(QLabel("Config (key=value):"))
         self.config_edit = QPlainTextEdit()
         self.config_edit.setMinimumHeight(180)
@@ -58,7 +69,12 @@ class StartDialog(QDialog):
     def selection(self) -> StartSelection:
         mode_id = self.mode_combo.currentData()
         overrides = _parse_kv_text(self.config_edit.toPlainText(), self._current_defaults)
-        return StartSelection(mode_id=mode_id, num_questions=int(self.num_questions.value()), overrides=overrides)
+        return StartSelection(
+            mode_id=mode_id,
+            num_questions=int(self.num_questions.value()),
+            timer_seconds=int(self.timer_seconds.value()),
+            overrides=overrides,
+        )
 
     def _on_mode_changed(self) -> None:
         mode_id = self.mode_combo.currentData()

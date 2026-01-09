@@ -72,10 +72,6 @@ class MathWindow(QWidget):
         self.setLayout(layout)
         self.render(self._step.view)
 
-    def set_step(self, step: State) -> None:
-        self._step = step
-        self.render(step.view)
-
     def render(self, view: View) -> None:
         self.question_label.setText(view.question_text)
         self.feedback_label.setText(view.feedback_text)
