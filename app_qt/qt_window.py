@@ -1,8 +1,16 @@
 from __future__ import annotations
 
-from PyQt6.QtWidgets import QWidget, QLabel, QLineEdit, QVBoxLayout, QGridLayout, QPushButton
+from PyQt6.QtWidgets import (
+    QWidget,
+    QLabel,
+    QLineEdit,
+    QVBoxLayout,
+    QGridLayout,
+    QPushButton,
+    QProgressBar,
+)
 from PyQt6.QtGui import QFont
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 from math_trainer_core import View, Progress, State, QuestionState
 
@@ -50,6 +58,12 @@ class MathWindow(QWidget):
         self.answer_edit.returnPressed.connect(self._on_enter)
         layout.addWidget(self.answer_edit)
 
+        # Timer-bar
+        self.time_bar = QProgressBar()
+        self.time_bar.setRange(0, 1000)  # vi skalar 0–1000
+        self.time_bar.setTextVisible(True)
+        layout.addWidget(self.time_bar)
+
         self.next_button = QPushButton("Nästa")
         self.next_button.clicked.connect(self._on_next)
         layout.addWidget(self.next_button)
@@ -70,6 +84,13 @@ class MathWindow(QWidget):
         layout.addWidget(self.progress_container)
 
         self.setLayout(layout)
+
+        # Qt-timer som driver core.refresh()
+        self._timer = QTimer(self)
+        self._timer.setInterval(5)
+        self._timer.timeout.connect(self._on_tick)
+        self._timer.start()
+
         self.render(self._step.view)
 
     def render(self, view: View) -> None:
@@ -79,7 +100,18 @@ class MathWindow(QWidget):
         self.streak_label.setText(get_streak_emoji(view.streak))
         self._render_progress_grid(view.progress)
 
-        # Keep QLineEdit active so Enter keeps working (keyboard-only UX).
+        # Timer-bar baserat på view.time
+        if view.time is None:
+            self.time_bar.hide()
+        else:
+            self.time_bar.show()
+            total = max(1, view.time.time_per_question_ms)
+            left = max(0, min(total, view.time.time_left_ms))
+            frac = left / total
+            self.time_bar.setValue(int(frac * 1000))
+            self.time_bar.setFormat(f"{left / 1000:.1f} s")
+
+        # Input aktiv bara när core säger det
         self.answer_edit.setReadOnly(not view.input_enabled)
 
         if view.input_enabled:
@@ -87,22 +119,26 @@ class MathWindow(QWidget):
         else:
             self.next_button.setFocus()
 
-        # Next enabled only when current state supports next()
-        is_feedback = self._step is not None and hasattr(self._step, "next")
+        # Next aktiv bara om state har next()
+        is_feedback = hasattr(self._step, "next")
         self.next_button.setEnabled(is_feedback)
+
+    def _on_tick(self) -> None:
+        # Bara QuestionState har refresh()
+        if hasattr(self._step, "refresh"):
+            self._step = self._step.refresh()
+            self.render(self._step.view)
 
     def _on_enter(self) -> None:
         if self._step is None:
             return
 
-        # Question state: Enter submits answer
         if hasattr(self._step, "answer"):
             self._step = self._step.answer(self.answer_edit.text())
             self.answer_edit.clear()
             self.render(self._step.view)
             return
 
-        # Feedback state: Enter advances
         if hasattr(self._step, "next"):
             self._step = self._step.next()
             self.answer_edit.clear()
