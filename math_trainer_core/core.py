@@ -1,92 +1,148 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 import time
 
-from .api_types import Progress, View, State, QuestionState, FeedbackState, FinishedState, TrainerConfig, QuestionTime
+from .api_types import (
+    Progress,
+    QuestionTime,
+    QuestionView,
+    QuestionScreen,
+    QuestionEvent,
+    RefreshEvent,
+    AnswerEvent,
+    NextEvent,
+    TrainingGridScreen,
+)
 from .plugin_api import Plugin, AnswerResult, QuestionResult
+
+
+DEFAULT_TIME_LIMIT_MS: Optional[int] = None  # e.g. 5000 for 5 seconds
 
 
 def _now_ms() -> int:
     return int(time.monotonic() * 1000)
 
-class FinishedImpl(FinishedState):
-    def __init__(self, view: View):
-        self.view = view  # keep name consistent with your ports (state or view)
 
-def next_question(view: View, plugin: Plugin, config: TrainerConfig) -> State:
-    # advance to next question
-    view.question_idx += 1
+class QuestionImpl(QuestionScreen):
+    """
+    Concrete implementation of QuestionScreen.
 
-    if view.question_idx >= len(view.progress):
-        view.question_text = f"Klart! Du fick {view.score} av {len(view.progress)} rätt."
-        view.feedback_text = ""
-        view.input_enabled = False
-        view.time = None
-        return FinishedImpl(view)
+    Internal sub-states:
+      - waiting for answer
+      - showing feedback and waiting for Next
+      - finished (no more questions)
+    """
 
-    return QuestionImpl(view=view, plugin=plugin, config=config)
-
-
-class FeedbackImpl(FeedbackState):
-    def __init__(self, view: View, plugin: Plugin, config: TrainerConfig):
-        self.view = view
+    def __init__(
+        self,
+        plugin: Plugin,
+        level_index: int,
+        parent_grid: TrainingGridScreen,
+        time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
+    ):
         self._plugin = plugin
-        self._config = config
-        self.state = view
+        self._level_index = level_index
+        self._parent_grid = parent_grid
+        self._time_limit_ms = time_limit_ms
 
-        self.view.input_enabled = False
-        self.view.time = None
+        # Public view object, mutated in place
+        self._view = QuestionView(
+            question_text="",
+            feedback_text="",
+            streak=0,
+            score=0,
+            progress=[Progress.PENDING],
+            question_idx=0,
+            input_enabled=True,
+            time=None,
+        )
 
-    def next(self) -> State:
-        return next_question(view=self.view, plugin=self._plugin, config=self._config)
+        # Internal state
+        self._question = self._plugin.make_question(self._level_index)
+        self._deadline_ms: Optional[int] = None
+        self._awaiting_next: bool = False
+
+        self._start_new_question(initial=True)
+
+    # -------------------------------------------------------------------------
+    # QuestionScreen interface
+    # -------------------------------------------------------------------------
+
+    @property
+    def view(self) -> QuestionView:
+        return self._view
+
+    @property
+    def possible_events(self) -> List[type[QuestionEvent]]:
+        """
+        Expose what makes sense in the current sub-state:
+          - waiting for answer: AnswerEvent, RefreshEvent
+          - waiting for next:  NextEvent, RefreshEvent (timer is usually off)
+        """
+        if self._awaiting_next:
+            return [NextEvent, RefreshEvent]
+
+        return [AnswerEvent, RefreshEvent]
+
+    def handle(self, event: QuestionEvent) -> QuestionScreen:
+        if isinstance(event, RefreshEvent):
+            return self._handle_refresh()
+
+        if isinstance(event, AnswerEvent):
+            return self._handle_answer(event.text)
+
+        if isinstance(event, NextEvent):
+            return self._handle_next()
+
+        return self
 
 
-class QuestionImpl(QuestionState):
-    def __init__(self, view: View, plugin: Plugin, config: TrainerConfig):
-        self.view = view
-        self._plugin = plugin
-        self._config = config
-        self.state = view
+    def escape(self) -> TrainingGridScreen:
+        """
+        Always possible: leave questions and go back to the training grid.
+        """
+        return self._parent_grid
 
-        self._question = plugin.make_question()
+    # -------------------------------------------------------------------------
+    # Internal helpers
+    # -------------------------------------------------------------------------
 
-        self.view.question_text = f"Fråga {self.view.question_idx + 1}:\n{self._question.read_question()}"
-        self.view.input_enabled = True
+    def _start_new_question(self, initial: bool = False) -> None:
+        """
+        Prepare view + timers for the current question_idx.
+        """
+        if not initial:
+            # fetch a new question from plugin
+            self._question = self._plugin.make_question(self._level_index)
 
-        if self._config.time_limit_ms is not None:
-            self._deadline_ms = _now_ms() + config.time_limit_ms
-            self.view.time = QuestionTime(time_per_question_ms=config.time_limit_ms, time_left_ms=config.time_limit_ms)
+        self._awaiting_next = False
+        self._view.input_enabled = True
+        self._view.feedback_text = ""
+        if self._view.question_idx >= len(self._view.progress):
+            self._view.progress.append(Progress.PENDING)
+
+        # timer setup
+        if self._time_limit_ms is not None:
+            self._deadline_ms = _now_ms() + self._time_limit_ms
+            self._view.time = QuestionTime(
+                time_per_question_ms=self._time_limit_ms,
+                time_left_ms=self._time_limit_ms,
+            )
         else:
             self._deadline_ms = None
-            self.view.time = None
+            self._view.time = None
 
-    def answer(self, raw_answer: str) -> State:
-        # if timed out, go to feedback first
-        if self._deadline_ms is not None and _now_ms() >= self._deadline_ms:
-            return self._timeout()
+        # render question text
+        self._view.question_text = (
+            f"Question {self._view.question_idx + 1}:\n"
+            f"{self._question.read_question()}"
+        )
 
-        result: QuestionResult = self._question.answer_question(raw_answer)
+    def _handle_refresh(self) -> QuestionScreen:
+        if self._awaiting_next:
+            return self
 
-        if result.result == AnswerResult.INVALID_INPUT:
-            self.view.feedback_text = "Skriv en siffra! 🙃"
-            return self  # stay in question state
-
-        if result.result == AnswerResult.CORRECT:
-            self.view.score += 1
-            self.view.streak += 1
-            self.view.progress[self.view.question_idx] = Progress.CORRECT
-            self.view.feedback_text = f"Rätt! ⭐ Antal rätt: {self.view.score} Streak: {self.view.streak}"
-            return next_question(view=self.view, plugin=self._plugin, config=self._config)
-        else:  # WRONG
-            self.view.streak = 0
-            self.view.progress[self.view.question_idx] = Progress.WRONG
-            self.view.feedback_text = f"Fel ❌  {result.display_answer_text}"
-
-        return FeedbackImpl(view=self.view, plugin=self._plugin, config=self._config)
-
-    def refresh(self) -> State:
         if self._deadline_ms is None:
             return self
 
@@ -94,27 +150,91 @@ class QuestionImpl(QuestionState):
         if remaining <= 0:
             return self._timeout()
 
-        self.view.time.time_left_ms = remaining
+        if self._view.time is not None:
+            self._view.time.time_left_ms = remaining
         return self
 
-    def _timeout(self) -> State:
-        self.view.streak = 0
-        self.view.progress[self.view.question_idx] = Progress.TIMED_OUT
-        self.view.feedback_text = "Tiden är slut! ⏰"
-        self.view.time = None
-        return FeedbackImpl(view=self.view, plugin=self._plugin, config=self._config)
+    def _handle_answer(self, raw_answer: str) -> QuestionScreen:
+        if self._awaiting_next:
+            # ignore extra answers when waiting for next
+            return self
+
+        if self._deadline_ms is not None and _now_ms() >= self._deadline_ms:
+            return self._timeout()
+
+        result: QuestionResult = self._question.answer_question(raw_answer)
+
+        if result.result == AnswerResult.INVALID_INPUT:
+            self._view.feedback_text = "Please enter a valid number. 🙃"
+            return self  # stay on current question, still waiting for answer
+
+        if result.result == AnswerResult.CORRECT:
+            self._view.score += 1
+            self._view.streak += 1
+            self._view.progress[self._view.question_idx] = Progress.CORRECT
+            # Advance immediately to the next question on correct answers.
+            self._view.question_idx += 1
+            self._start_new_question(initial=False)
+            return self
+
+        else:  # WRONG
+            self._view.streak = 0
+            self._view.progress[self._view.question_idx] = Progress.WRONG
+            self._view.feedback_text = result.display_answer_text
+
+        # We now consider this question "consumed" and wait for Next
+        self._awaiting_next = True
+        self._view.input_enabled = False
+        self._view.time = None  # stop showing timer
+
+        return self
+
+    def _handle_next(self) -> QuestionScreen:
+        if not self._awaiting_next:
+            # Nothing to advance; ignore
+            return self
+
+        # Move to the next question index
+        self._view.question_idx += 1
+
+        # Otherwise, start a fresh question
+        self._start_new_question(initial=False)
+        return self
+
+    def _timeout(self) -> QuestionScreen:
+        self._awaiting_next = True
+        self._view.streak = 0
+        self._view.progress[self._view.question_idx] = Progress.TIMED_OUT
+
+        reveal: QuestionResult = self._question.reveal_answer()
+        self._view.feedback_text = f"Time is up! ⏰  {reveal.display_answer_text}"
+
+        self._view.time = None
+        self._view.input_enabled = False
+
+        return self
 
 
-def Start(plugin: Plugin, config: TrainerConfig) -> State:
-    # mutable view, owned by states
-    view = View(
-        question_idx=0,
-        question_text="",
-        feedback_text="",
-        streak=0,
-        score=0,
-        progress=[Progress.PENDING] * config.num_questions,
-        input_enabled=True,
-        time=None,
+# ---------------------------------------------------------------------------
+# Factory function for creating a QuestionScreen
+# ---------------------------------------------------------------------------
+
+def start_question_session(
+    plugin: Plugin,
+    level_index: int,
+    parent_grid: TrainingGridScreen,
+    time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
+) -> QuestionScreen:
+    """
+    Core entry point for the training grid implementation:
+    start a new question session for a given plugin + level.
+
+    GUI never calls this directly; it will call TrainingGridScreen.enter(),
+    and your grid implementation will call this function internally.
+    """
+    return QuestionImpl(
+        plugin=plugin,
+        level_index=level_index,
+        parent_grid=parent_grid,
+        time_limit_ms=time_limit_ms,
     )
-    return QuestionImpl(view=view, plugin=plugin, config=config)

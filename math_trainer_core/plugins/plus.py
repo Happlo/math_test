@@ -60,7 +60,7 @@ class PlusPluginFactory:
     @staticmethod
     def PluginInfo() -> PluginInfo:
         return PluginInfo(
-            plugin_id="plus",
+            id="plus",
             name="Addition",
             description="Träna på plus med max-summa.",
         )
@@ -85,4 +85,4 @@ class PlusPluginFactory:
         return PlusPlugin(cfg)
 
 
-PLUGIN_FACTORY = PlusPluginFactory
+#PLUGIN_FACTORY = PlusPluginFactory

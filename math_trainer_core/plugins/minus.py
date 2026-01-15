@@ -60,7 +60,7 @@ class MinusPluginFactory:
     @staticmethod
     def PluginInfo() -> PluginInfo:
         return PluginInfo(
-            plugin_id="minus",
+            id="minus",
             name="Subtraktion",
             description="Träna på minus (val för negativa svar).",
         )
@@ -85,4 +85,4 @@ class MinusPluginFactory:
         return MinusPlugin(cfg)
 
 
-PLUGIN_FACTORY = MinusPluginFactory
+#PLUGIN_FACTORY = MinusPluginFactory

@@ -82,7 +82,7 @@ class AlphabetOrderPluginFactory:
     @staticmethod
     def PluginInfo() -> PluginInfo:
         return PluginInfo(
-            plugin_id="alphabet_order_se",
+            id="alphabet_order_se",
             name="Alfabetisk ordning (svenska)",
             description="Sätt bokstäver i alfabetisk ordning (inkl. å, ä, ö).",
         )
@@ -111,4 +111,4 @@ class AlphabetOrderPluginFactory:
         return AlphabetOrderPlugin(cfg)
 
 
-PLUGIN_FACTORY = AlphabetOrderPluginFactory
+#PLUGIN_FACTORY = AlphabetOrderPluginFactory

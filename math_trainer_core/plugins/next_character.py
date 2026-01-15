@@ -69,7 +69,7 @@ class NextCharPluginFactory:
     @staticmethod
     def PluginInfo() -> PluginInfo:
         return PluginInfo(
-            plugin_id="next_char_se",
+            id="next_char_se",
             name="Nästa bokstav (svenska alfabetet)",
             description="Frågar efter nästa bokstav i svenska alfabetet (inkl. å, ä, ö).",
         )
@@ -100,4 +100,4 @@ class NextCharPluginFactory:
         return NextCharPlugin(cfg)
 
 
-PLUGIN_FACTORY = NextCharPluginFactory
+#PLUGIN_FACTORY = NextCharPluginFactory
