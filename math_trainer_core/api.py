@@ -9,7 +9,7 @@ from .api_types import (
     TrainingSelectView,
     TrainingItemView,
 )
-from .select_impl import TrainingSelectImpl  # concrete implementation
+from .core.training_select_impl import TrainingSelectImpl  # concrete implementation
 from pathlib import Path
 
 def _icon_to_text(info: PluginInfo) -> str:

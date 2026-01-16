@@ -3,23 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from .api_types import (
+from ..api_types import (
     TrainingSelectScreen,
-    TrainingSelectView,
     TrainingGridScreen,
     TrainingGridView,
-    TrainingItemView,
     CellProgress,
     GridMove,
-    SelectMove,
     QuestionScreen,
 )
-from .core import start_question_session
-from .plugin_api import Plugin, PluginInfo, Difficulty, Chapters
+from ..plugin_api import Plugin, PluginInfo, Difficulty, Chapters
+from .question_impl import start_question_session
 
 
 _DEFAULT_INFINITE_LEVELS = 25
 _TIME_LIMITS_MS = [20000, 15000, 10000, 7000, 5000]
+_DEFAULT_REQUIRED_STREAK = 5
 
 
 def _level_count_for_mode(mode: Difficulty | Chapters) -> int:
@@ -69,10 +67,12 @@ class TrainingGridImpl(TrainingGridScreen):
             height=height,
             time_limits_ms=list(_TIME_LIMITS_MS),
         )
+        self._required_streak = max(1, info.required_streak or _DEFAULT_REQUIRED_STREAK)
 
         self._current_x = 0
         self._current_y = 0
-        self._completed: set[tuple[int, int]] = set()
+        self._unlocked: set[tuple[int, int]] = {(0, 0)}
+        self._max_streak: dict[tuple[int, int], int] = {}
 
         self._view = TrainingGridView(
             title=self._config.title,
@@ -102,6 +102,8 @@ class TrainingGridImpl(TrainingGridScreen):
         ny = self._current_y + dy
         if not self._is_valid_coord(nx, ny):
             return self
+        if not self._is_unlocked_or_completed((nx, ny)):
+            return self
 
         self._current_x = nx
         self._current_y = ny
@@ -111,23 +113,31 @@ class TrainingGridImpl(TrainingGridScreen):
     def enter(self) -> QuestionScreen:
         level_index = self._difficulty_index(self._current_x)
         time_limit_ms = self._time_limit_for_row(self._current_y)
+        coord = (self._current_x, self._current_y)
+        initial_highest = self._max_streak.get(coord, 0)
         inner = start_question_session(
             plugin=self._plugin,
             level_index=level_index,
             parent_grid=self,
+            streak_to_advance_mastery=self._required_streak,
+            initial_highest_streak=initial_highest,
             time_limit_ms=time_limit_ms,
         )
-        coord = (self._current_x, self._current_y)
         return _QuestionWrapper(inner=inner, grid=self, coord=coord)
 
     def escape(self) -> TrainingSelectScreen:
         return self._parent_select
 
-    def mark_completed(self, coord: tuple[int, int]) -> None:
-        x, y = coord
-        if self._is_valid_coord(x, y):
-            self._completed.add(coord)
-            self._rebuild_view()
+    def record_streak(self, coord: tuple[int, int], streak: int) -> None:
+        if not self._is_valid_coord(coord[0], coord[1]):
+            return
+        prev = self._max_streak.get(coord, 0)
+        if streak <= prev:
+            return
+        self._max_streak[coord] = streak
+        if self._mastery_level(coord) > 0:
+            self._unlock_adjacent(coord)
+        self._rebuild_view()
 
     # ------------------------------------------------------------------ helpers
 
@@ -143,6 +153,19 @@ class TrainingGridImpl(TrainingGridScreen):
         if self._config.time_limits_ms:
             return self._config.time_limits_ms[min(y, len(self._config.time_limits_ms) - 1)]
         return _TIME_LIMITS_MS[-1]
+
+    def _mastery_level(self, coord: tuple[int, int]) -> int:
+        return self._max_streak.get(coord, 0) // self._required_streak
+
+    def _is_unlocked_or_completed(self, coord: tuple[int, int]) -> bool:
+        return coord in self._unlocked or self._mastery_level(coord) > 0
+
+    def _unlock_adjacent(self, coord: tuple[int, int]) -> None:
+        x, y = coord
+        for nx, ny in ((x + 1, y), (x, y + 1)):
+            if self._is_valid_coord(nx, ny) and (nx, ny) not in self._unlocked:
+                if self._mastery_level((nx, ny)) == 0:
+                    self._unlocked.add((nx, ny))
 
     def _level_label(self, index: int) -> str:
         if isinstance(self._config.mode, Chapters):
@@ -174,12 +197,15 @@ class TrainingGridImpl(TrainingGridScreen):
                 if x >= self._config.level_count:
                     row.append(CellProgress.LOCKED)
                     continue
+                coord = (x, y)
                 if x == self._current_x and y == self._current_y:
                     row.append(CellProgress.CURRENT)
-                elif (x, y) in self._completed:
+                elif self._mastery_level(coord) > 0:
                     row.append(CellProgress.COMPLETED)
-                else:
+                elif coord in self._unlocked:
                     row.append(CellProgress.AVAILABLE)
+                else:
+                    row.append(CellProgress.LOCKED)
             grid.append(row)
 
         self._view.grid = grid
@@ -204,61 +230,8 @@ class _QuestionWrapper(QuestionScreen):
 
     def handle(self, event):
         self._inner = self._inner.handle(event)
+        self._grid.record_streak(self._coord, self._inner.view.highest_streak)
         return self
-
 
     def escape(self) -> TrainingGridScreen:
-        if self._is_finished():
-            self._grid.mark_completed(self._coord)
         return self._grid
-
-    def _is_finished(self) -> bool:
-        view = self._inner.view
-        return len(self._inner.possible_events) == 0
-
-
-class TrainingSelectImpl(TrainingSelectScreen):
-    def __init__(self, view: TrainingSelectView, plugins):
-        self._view = view
-        self._plugins = plugins
-
-    @property
-    def view(self) -> TrainingSelectView:
-        return self._view
-
-    def move(self, event: SelectMove) -> TrainingSelectScreen:
-        if event == SelectMove.UP:
-            self._view.selected_index = max(0, self._view.selected_index - 1)
-        elif event == SelectMove.DOWN:
-            self._view.selected_index = min(
-                len(self._view.items) - 1,
-                self._view.selected_index + 1
-            )
-        return self
-
-    def enter(self):
-        selected = self._view.items[self._view.selected_index]
-        loaded = self._plugins[selected.training_id]
-        factory = loaded.factory
-        plugin = factory.CreatePlugin()
-        info = factory.PluginInfo()
-        return _make_initial_training_grid(
-            plugin=plugin,
-            selected=selected,
-            info=info,
-            parent_select=self,
-        )
-
-
-def _make_initial_training_grid(
-    plugin: Plugin,
-    selected: TrainingItemView,
-    info: PluginInfo,
-    parent_select: TrainingSelectScreen,
-) -> TrainingGridScreen:
-    return TrainingGridImpl(
-        plugin=plugin,
-        info=info,
-        parent_select=parent_select,
-        title=selected.label,
-    )

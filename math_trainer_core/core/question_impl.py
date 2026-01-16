@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional, List
 import time
 
-from .api_types import (
+from ..api_types import (
     Progress,
     QuestionTime,
     QuestionView,
@@ -14,7 +14,7 @@ from .api_types import (
     NextEvent,
     TrainingGridScreen,
 )
-from .plugin_api import Plugin, AnswerResult, QuestionResult
+from ..plugin_api import Plugin, AnswerResult, QuestionResult
 
 
 DEFAULT_TIME_LIMIT_MS: Optional[int] = None  # e.g. 5000 for 5 seconds
@@ -39,18 +39,25 @@ class QuestionImpl(QuestionScreen):
         plugin: Plugin,
         level_index: int,
         parent_grid: TrainingGridScreen,
+        streak_to_advance_mastery: int,
+        initial_highest_streak: int = 0,
         time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
     ):
         self._plugin = plugin
         self._level_index = level_index
         self._parent_grid = parent_grid
         self._time_limit_ms = time_limit_ms
+        self._streak_to_advance_mastery = max(1, streak_to_advance_mastery)
 
         # Public view object, mutated in place
+        initial_highest = max(0, initial_highest_streak)
         self._view = QuestionView(
             question_text="",
             feedback_text="",
-            streak=0,
+            current_streak=0,
+            highest_streak=initial_highest,
+            streak_to_advance_mastery=self._streak_to_advance_mastery,
+            mastery_level=initial_highest // self._streak_to_advance_mastery,
             score=0,
             progress=[Progress.PENDING],
             question_idx=0,
@@ -96,7 +103,6 @@ class QuestionImpl(QuestionScreen):
             return self._handle_next()
 
         return self
-
 
     def escape(self) -> TrainingGridScreen:
         """
@@ -170,7 +176,12 @@ class QuestionImpl(QuestionScreen):
 
         if result.result == AnswerResult.CORRECT:
             self._view.score += 1
-            self._view.streak += 1
+            self._view.current_streak += 1
+            if self._view.current_streak > self._view.highest_streak:
+                self._view.highest_streak = self._view.current_streak
+                self._view.mastery_level = (
+                    self._view.highest_streak // self._view.streak_to_advance_mastery
+                )
             self._view.progress[self._view.question_idx] = Progress.CORRECT
             # Advance immediately to the next question on correct answers.
             self._view.question_idx += 1
@@ -178,7 +189,7 @@ class QuestionImpl(QuestionScreen):
             return self
 
         else:  # WRONG
-            self._view.streak = 0
+            self._view.current_streak = 0
             self._view.progress[self._view.question_idx] = Progress.WRONG
             self._view.feedback_text = result.display_answer_text
 
@@ -203,7 +214,7 @@ class QuestionImpl(QuestionScreen):
 
     def _timeout(self) -> QuestionScreen:
         self._awaiting_next = True
-        self._view.streak = 0
+        self._view.current_streak = 0
         self._view.progress[self._view.question_idx] = Progress.TIMED_OUT
 
         reveal: QuestionResult = self._question.reveal_answer()
@@ -223,6 +234,8 @@ def start_question_session(
     plugin: Plugin,
     level_index: int,
     parent_grid: TrainingGridScreen,
+    streak_to_advance_mastery: int,
+    initial_highest_streak: int = 0,
     time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
 ) -> QuestionScreen:
     """
@@ -236,5 +249,7 @@ def start_question_session(
         plugin=plugin,
         level_index=level_index,
         parent_grid=parent_grid,
+        streak_to_advance_mastery=streak_to_advance_mastery,
+        initial_highest_streak=initial_highest_streak,
         time_limit_ms=time_limit_ms,
     )

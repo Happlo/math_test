@@ -2,3 +2,4 @@ app_qt/__pycache__
 math_trainer_core/__pycache__
 math_trainer_core/plugins/__pycache__
 .venv
+math_trainer_core/core/__pycache__

@@ -39,27 +39,27 @@ from math_trainer_core.api_types import (
 )
 
 
-# Simple mapping for question streak emoji
-STREAK_EMOJIS = {
-    1: "🌕",
-    2: "🦜",
-    3: "🌴",
-    4: "🪐",
-    5: "🐢",
-    6: "😃",
-    7: "🤓",
-    8: "🤩",
-    9: "😲",
-    12: "🤯",
-    30: "🥳🎈🎉🎊",
+# Simple mapping for mastery level emoji
+MASTERY_EMOJIS = {
+    0: "🔒",
+    1: "🔓",
+    2: "👍",
+    3: "👌",
+    4: "🌟",
+    5: "🔥",
+    6: "😯",
+    7: "😲",
+    8: "🤯",
+    9: "🚀",
+    10: "💎",
 }
 
 
-def _streak_emoji(streak: int) -> str:
+def _mastery_emoji(streak: int) -> str:
     emoji = ""
-    for threshold in sorted(STREAK_EMOJIS.keys()):
+    for threshold in sorted(MASTERY_EMOJIS.keys()):
         if streak >= threshold:
-            emoji = STREAK_EMOJIS[threshold]
+            emoji = MASTERY_EMOJIS[threshold]
         else:
             break
     return emoji
@@ -348,7 +348,7 @@ class MainWindow(QWidget):
         self._content_layout.addWidget(fb_lbl)
 
         # Streak emoji
-        streak_lbl = QLabel(_streak_emoji(view.streak))
+        streak_lbl = QLabel(_mastery_emoji(view.mastery_level))
         streak_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         streak_lbl.setFont(QFont("Segoe UI Emoji", 30))
         self._content_layout.addWidget(streak_lbl)

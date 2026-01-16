@@ -51,7 +51,10 @@ QuestionEvent = Union[RefreshEvent, AnswerEvent, NextEvent]
 class QuestionView:
     question_text: str
     feedback_text: str
-    streak: int
+    current_streak: int
+    highest_streak: int
+    streak_to_advance_mastery: int
+    mastery_level: int
     score: int
     progress: List[Progress]
     question_idx: int
