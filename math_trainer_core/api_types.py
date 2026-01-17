@@ -88,33 +88,33 @@ class QuestionScreen(Protocol):
 # Training grid screen
 # ---------------------------------------------------------------------------
 
-class CellProgress(Enum):
-    LOCKED = auto()
-    AVAILABLE = auto()
-    COMPLETED = auto()
-    CURRENT = auto()
-
-
-class GridMove(Enum):
-    LEFT = auto()
-    RIGHT = auto()
-    UP = auto()
-    DOWN = auto()
+@dataclass(frozen=True)
+class Unlocked:
+    mastery_level: int
 
 
 @dataclass(frozen=True)
-class GridMoveEvent:
-    direction: GridMove
+class Locked:
+    pass
+
+
+CellProgress = Union[Locked, Unlocked]
 
 
 @dataclass
 class TrainingGridView:
     title: str
     # 2D grid: grid[y][x]
-    grid: List[List[CellProgress]]
+    grid: dict[tuple[int, int], CellProgress]
     current_x: int
     current_y: int
     hint: str
+
+class GridMove(Enum):
+    LEFT = auto()
+    RIGHT = auto()
+    UP = auto()
+    DOWN = auto()
 
 
 class TrainingGridScreen(Protocol):

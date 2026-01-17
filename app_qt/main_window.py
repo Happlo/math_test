@@ -33,6 +33,8 @@ from math_trainer_core.api_types import (
     GridMove,
     Progress,
     CellProgress,
+    Locked,
+    Unlocked,
     AnswerEvent,
     NextEvent,
     RefreshEvent,
@@ -285,16 +287,17 @@ class MainWindow(QWidget):
         grid_layout = QGridLayout(grid_widget)
         grid_layout.setSpacing(6)
 
-        symbol_map = {
-            CellProgress.LOCKED: "⬛",
-            CellProgress.AVAILABLE: "⬜",
-            CellProgress.COMPLETED: "✅",
-            CellProgress.CURRENT: "🟦",
-        }
+        if view.grid:
+            max_x = max(coord[0] for coord in view.grid.keys())
+            max_y = max(coord[1] for coord in view.grid.keys())
+        else:
+            max_x = -1
+            max_y = -1
 
-        for y, row in enumerate(view.grid):
-            for x, cell in enumerate(row):
-                symbol = symbol_map.get(cell, "?")
+        for y in range(max_y + 1):
+            for x in range(max_x + 1):
+                cell: CellProgress = view.grid.get((x, y), Locked())
+                symbol = self._grid_symbol(cell, x == view.current_x and y == view.current_y)
                 lbl = QLabel(symbol)
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 lbl.setFont(QFont("Segoe UI Emoji", 20))
@@ -305,6 +308,17 @@ class MainWindow(QWidget):
         hint = QLabel(view.hint or "Arrows to move, Enter to start, Esc to go back")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_layout.addWidget(hint)
+
+    def _grid_symbol(self, cell: CellProgress, is_current: bool) -> str:
+        if is_current:
+            return "🟦"
+        if isinstance(cell, Locked):
+            return "⬛"
+        if isinstance(cell, Unlocked):
+            if cell.mastery_level <= 0:
+                return "⬜"
+            return _mastery_emoji(cell.mastery_level)
+        return "?"
 
     def _render_question(self, view: QuestionView) -> None:
         prev_text = ""

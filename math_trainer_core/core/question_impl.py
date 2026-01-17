@@ -7,12 +7,10 @@ from ..api_types import (
     Progress,
     QuestionTime,
     QuestionView,
-    QuestionScreen,
     QuestionEvent,
     RefreshEvent,
     AnswerEvent,
     NextEvent,
-    TrainingGridScreen,
 )
 from ..plugin_api import Plugin, AnswerResult, QuestionResult
 
@@ -24,7 +22,7 @@ def _now_ms() -> int:
     return int(time.monotonic() * 1000)
 
 
-class QuestionImpl(QuestionScreen):
+class QuestionImpl:
     """
     Concrete implementation of QuestionScreen.
 
@@ -38,14 +36,12 @@ class QuestionImpl(QuestionScreen):
         self,
         plugin: Plugin,
         level_index: int,
-        parent_grid: TrainingGridScreen,
         streak_to_advance_mastery: int,
         initial_highest_streak: int = 0,
         time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
     ):
         self._plugin = plugin
         self._level_index = level_index
-        self._parent_grid = parent_grid
         self._time_limit_ms = time_limit_ms
         self._streak_to_advance_mastery = max(1, streak_to_advance_mastery)
 
@@ -71,10 +67,6 @@ class QuestionImpl(QuestionScreen):
         self._awaiting_next: bool = False
 
         self._start_new_question(initial=True)
-
-    # -------------------------------------------------------------------------
-    # QuestionScreen interface
-    # -------------------------------------------------------------------------
 
     @property
     def view(self) -> QuestionView:
@@ -103,12 +95,6 @@ class QuestionImpl(QuestionScreen):
             return self._handle_next()
 
         return self
-
-    def escape(self) -> TrainingGridScreen:
-        """
-        Always possible: leave questions and go back to the training grid.
-        """
-        return self._parent_grid
 
     # -------------------------------------------------------------------------
     # Internal helpers
@@ -233,11 +219,10 @@ class QuestionImpl(QuestionScreen):
 def start_question_session(
     plugin: Plugin,
     level_index: int,
-    parent_grid: TrainingGridScreen,
     streak_to_advance_mastery: int,
     initial_highest_streak: int = 0,
     time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
-) -> QuestionScreen:
+):
     """
     Core entry point for the training grid implementation:
     start a new question session for a given plugin + level.
@@ -248,7 +233,6 @@ def start_question_session(
     return QuestionImpl(
         plugin=plugin,
         level_index=level_index,
-        parent_grid=parent_grid,
         streak_to_advance_mastery=streak_to_advance_mastery,
         initial_highest_streak=initial_highest_streak,
         time_limit_ms=time_limit_ms,

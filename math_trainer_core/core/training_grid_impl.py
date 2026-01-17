@@ -8,6 +8,8 @@ from ..api_types import (
     TrainingGridScreen,
     TrainingGridView,
     CellProgress,
+    Locked,
+    Unlocked,
     GridMove,
     QuestionScreen,
 )
@@ -72,11 +74,11 @@ class TrainingGridImpl(TrainingGridScreen):
         self._current_x = 0
         self._current_y = 0
         self._unlocked: set[tuple[int, int]] = {(0, 0)}
-        self._max_streak: dict[tuple[int, int], int] = {}
+        self._mastery_levels: dict[tuple[int, int], int] = {}
 
         self._view = TrainingGridView(
             title=self._config.title,
-            grid=[],
+            grid={},
             current_x=self._current_x,
             current_y=self._current_y,
             hint="",
@@ -114,11 +116,10 @@ class TrainingGridImpl(TrainingGridScreen):
         level_index = self._difficulty_index(self._current_x)
         time_limit_ms = self._time_limit_for_row(self._current_y)
         coord = (self._current_x, self._current_y)
-        initial_highest = self._max_streak.get(coord, 0)
+        initial_highest = self._mastery_levels.get(coord, 0) * self._required_streak
         inner = start_question_session(
             plugin=self._plugin,
             level_index=level_index,
-            parent_grid=self,
             streak_to_advance_mastery=self._required_streak,
             initial_highest_streak=initial_highest,
             time_limit_ms=time_limit_ms,
@@ -128,14 +129,14 @@ class TrainingGridImpl(TrainingGridScreen):
     def escape(self) -> TrainingSelectScreen:
         return self._parent_select
 
-    def record_streak(self, coord: tuple[int, int], streak: int) -> None:
+    def record_mastery(self, coord: tuple[int, int], mastery_level: int) -> None:
         if not self._is_valid_coord(coord[0], coord[1]):
             return
-        prev = self._max_streak.get(coord, 0)
-        if streak <= prev:
+        prev = self._mastery_levels.get(coord, 0)
+        if mastery_level <= prev:
             return
-        self._max_streak[coord] = streak
-        if self._mastery_level(coord) > 0:
+        self._mastery_levels[coord] = mastery_level
+        if mastery_level > 0:
             self._unlock_adjacent(coord)
         self._rebuild_view()
 
@@ -155,7 +156,7 @@ class TrainingGridImpl(TrainingGridScreen):
         return _TIME_LIMITS_MS[-1]
 
     def _mastery_level(self, coord: tuple[int, int]) -> int:
-        return self._max_streak.get(coord, 0) // self._required_streak
+        return self._mastery_levels.get(coord, 0)
 
     def _is_unlocked_or_completed(self, coord: tuple[int, int]) -> bool:
         return coord in self._unlocked or self._mastery_level(coord) > 0
@@ -190,23 +191,18 @@ class TrainingGridImpl(TrainingGridScreen):
         return f"{header} — Time limit: {time_text}. Arrows to move, Enter to start, Esc to go back"
 
     def _rebuild_view(self) -> None:
-        grid: List[List[CellProgress]] = []
+        grid: dict[tuple[int, int], CellProgress] = {}
         for y in range(self._config.height):
-            row: List[CellProgress] = []
             for x in range(self._config.width):
                 if x >= self._config.level_count:
-                    row.append(CellProgress.LOCKED)
+                    grid[(x, y)] = Locked()
                     continue
                 coord = (x, y)
-                if x == self._current_x and y == self._current_y:
-                    row.append(CellProgress.CURRENT)
-                elif self._mastery_level(coord) > 0:
-                    row.append(CellProgress.COMPLETED)
-                elif coord in self._unlocked:
-                    row.append(CellProgress.AVAILABLE)
+                mastery = self._mastery_level(coord)
+                if coord in self._unlocked or mastery > 0:
+                    grid[(x, y)] = Unlocked(mastery_level=mastery)
                 else:
-                    row.append(CellProgress.LOCKED)
-            grid.append(row)
+                    grid[(x, y)] = Locked()
 
         self._view.grid = grid
         self._view.current_x = self._current_x
@@ -215,7 +211,7 @@ class TrainingGridImpl(TrainingGridScreen):
 
 
 class _QuestionWrapper(QuestionScreen):
-    def __init__(self, inner: QuestionScreen, grid: TrainingGridImpl, coord: tuple[int, int]):
+    def __init__(self, inner, grid: TrainingGridImpl, coord: tuple[int, int]):
         self._inner = inner
         self._grid = grid
         self._coord = coord
@@ -230,8 +226,8 @@ class _QuestionWrapper(QuestionScreen):
 
     def handle(self, event):
         self._inner = self._inner.handle(event)
-        self._grid.record_streak(self._coord, self._inner.view.highest_streak)
         return self
 
     def escape(self) -> TrainingGridScreen:
+        self._grid.record_mastery(self._coord, self._inner.view.mastery_level)
         return self._grid
