@@ -17,8 +17,10 @@ from PyQt6.QtWidgets import (
     QWidget,
     QLabel,
     QVBoxLayout,
+    QHBoxLayout,
     QGridLayout,
     QLineEdit,
+    QFrame,
     QApplication,
 )
 
@@ -285,14 +287,36 @@ class MainWindow(QWidget):
 
         grid_widget = QWidget()
         grid_layout = QGridLayout(grid_widget)
-        grid_layout.setSpacing(6)
+        grid_layout.setSpacing(0)
 
         for (x, y), cell in view.grid.items():
-            symbol = self._grid_symbol(cell, x == view.current_x and y == view.current_y)
-            lbl = QLabel(symbol)
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl.setFont(QFont("Segoe UI Emoji", 20))
-            grid_layout.addWidget(lbl, y, x)
+            if isinstance(cell, Locked):
+                continue
+            room = self._build_room_widget(view, (x, y), cell)
+            grid_layout.addWidget(room, y * 2, x * 2)
+
+        for (x, y), cell in view.grid.items():
+            right_neighbor = (x + 1, y)
+            if right_neighbor in view.grid:
+                right_open = isinstance(view.grid[right_neighbor], Unlocked)
+                corridor = self._corridor_widget(is_open=right_open, vertical=False)
+                grid_layout.addWidget(
+                    corridor,
+                    y * 2,
+                    x * 2 + 1,
+                    alignment=Qt.AlignmentFlag.AlignCenter,
+                )
+
+            down_neighbor = (x, y + 1)
+            if down_neighbor in view.grid:
+                down_open = isinstance(view.grid[down_neighbor], Unlocked)
+                corridor = self._corridor_widget(is_open=down_open, vertical=True)
+                grid_layout.addWidget(
+                    corridor,
+                    y * 2 + 1,
+                    x * 2,
+                    alignment=Qt.AlignmentFlag.AlignCenter,
+                )
 
         self._content_layout.addWidget(grid_widget)
 
@@ -300,14 +324,68 @@ class MainWindow(QWidget):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_layout.addWidget(hint)
 
-    def _grid_symbol(self, cell: CellProgress, is_current: bool) -> str:
+    def _build_room_widget(
+        self,
+        view: TrainingGridView,
+        coord: tuple[int, int],
+        cell: CellProgress,
+    ) -> QWidget:
+        x, y = coord
+        is_current = x == view.current_x and y == view.current_y
+        mastery_level = cell.mastery_level if isinstance(cell, Unlocked) else 0
+
+        room = QFrame()
+        room.setFrameShape(QFrame.Shape.StyledPanel)
+        room.setFixedSize(130, 110)
+        border_color = "#1e88e5" if is_current else "#5f5f5f"
+        room.setStyleSheet(
+            "QFrame {"
+            f"border: 2px solid {border_color};"
+            "border-radius: 8px;"
+            "background-color: #f7f2e7;"
+            "}"
+        )
+
+        layout = QVBoxLayout(room)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(2)
+
+        header = QHBoxLayout()
+        header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(4)
+
+        mastery_lbl = QLabel(_mastery_emoji(mastery_level) if mastery_level > 0 else "⬜")
+        mastery_lbl.setFont(QFont("Segoe UI Emoji", 14))
+        header.addWidget(mastery_lbl)
+
         if is_current:
-            return "🟦"
-        if isinstance(cell, Unlocked):
-            if cell.mastery_level <= 0:
-                return "⬜"
-            return _mastery_emoji(cell.mastery_level)
-        return "?"
+            turtle_lbl = QLabel("🐢")
+            turtle_lbl.setFont(QFont("Segoe UI Emoji", 14))
+            header.addWidget(turtle_lbl)
+
+        header.addStretch()
+        layout.addLayout(header)
+
+        score_lbl = QLabel("Score: 0")
+        score_lbl.setFont(QFont("Segoe UI", 9))
+        layout.addWidget(score_lbl)
+
+        return room
+
+    def _corridor_widget(self, is_open: bool, vertical: bool) -> QFrame:
+        corridor = QFrame()
+        if vertical:
+            corridor.setFixedSize(24, 24)
+        else:
+            corridor.setFixedSize(24, 24)
+        color = "#7cb342" if is_open else "#b71c1c"
+        corridor.setStyleSheet(
+            "QFrame {"
+            f"background-color: {color};"
+            "border-radius: 3px;"
+            "}"
+        )
+        return corridor
 
     def _render_question(self, view: QuestionView) -> None:
         prev_text = ""
