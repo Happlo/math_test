@@ -287,21 +287,12 @@ class MainWindow(QWidget):
         grid_layout = QGridLayout(grid_widget)
         grid_layout.setSpacing(6)
 
-        if view.grid:
-            max_x = max(coord[0] for coord in view.grid.keys())
-            max_y = max(coord[1] for coord in view.grid.keys())
-        else:
-            max_x = -1
-            max_y = -1
-
-        for y in range(max_y + 1):
-            for x in range(max_x + 1):
-                cell: CellProgress = view.grid.get((x, y), Locked())
-                symbol = self._grid_symbol(cell, x == view.current_x and y == view.current_y)
-                lbl = QLabel(symbol)
-                lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                lbl.setFont(QFont("Segoe UI Emoji", 20))
-                grid_layout.addWidget(lbl, y, x)
+        for (x, y), cell in view.grid.items():
+            symbol = self._grid_symbol(cell, x == view.current_x and y == view.current_y)
+            lbl = QLabel(symbol)
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl.setFont(QFont("Segoe UI Emoji", 20))
+            grid_layout.addWidget(lbl, y, x)
 
         self._content_layout.addWidget(grid_widget)
 
@@ -312,8 +303,6 @@ class MainWindow(QWidget):
     def _grid_symbol(self, cell: CellProgress, is_current: bool) -> str:
         if is_current:
             return "🟦"
-        if isinstance(cell, Locked):
-            return "⬛"
         if isinstance(cell, Unlocked):
             if cell.mastery_level <= 0:
                 return "⬜"

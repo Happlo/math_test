@@ -192,16 +192,20 @@ class TrainingGridImpl(TrainingGridScreen):
 
     def _rebuild_view(self) -> None:
         grid: dict[tuple[int, int], CellProgress] = {}
+        locked_neighbors: set[tuple[int, int]] = set()
+        for x, y in self._unlocked:
+            for nx, ny in ((x + 1, y), (x, y + 1)):
+                if self._is_valid_coord(nx, ny) and (nx, ny) not in self._unlocked:
+                    locked_neighbors.add((nx, ny))
         for y in range(self._config.height):
             for x in range(self._config.width):
                 if x >= self._config.level_count:
-                    grid[(x, y)] = Locked()
                     continue
                 coord = (x, y)
                 mastery = self._mastery_level(coord)
-                if coord in self._unlocked or mastery > 0:
+                if coord in self._unlocked or mastery > 0 or coord == (self._current_x, self._current_y):
                     grid[(x, y)] = Unlocked(mastery_level=mastery)
-                else:
+                elif coord in locked_neighbors:
                     grid[(x, y)] = Locked()
 
         self._view.grid = grid
