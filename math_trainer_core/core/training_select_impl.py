@@ -7,11 +7,39 @@ from ..api_types import (
     TrainingItemView,
     SelectMove,
 )
-from ..plugin_api import Plugin, PluginInfo
+from ..plugin_api import Plugin, PluginInfo, EmojiIcon, FileIcon
+from ..plugin_loader import load_plugin_factories
 from .training_grid_impl import TrainingGridImpl
 
 
 class TrainingSelectImpl(TrainingSelectScreen):
+    @staticmethod
+    def start() -> TrainingSelectScreen:
+        plugins = load_plugin_factories()  # dict[id, LoadedPlugin]
+
+        items: list[TrainingItemView] = []
+        for loaded in plugins.values():
+            info: PluginInfo = loaded.info
+            items.append(
+                TrainingItemView(
+                    training_id=info.id,        # opaque id, only core cares
+                    label=info.name,
+                    description=info.description,
+                    icon_text=_icon_to_text(info),
+                )
+            )
+
+        view = TrainingSelectView(
+            title="Choose training",
+            items=items,
+            selected_index=0,
+        )
+
+        # TrainingSelectImpl will keep 'plugins' internally, so later when the
+        # user presses Enter, it can create the right plugin instance and
+        # transition to a TrainingGridScreen.
+        return TrainingSelectImpl(view=view, plugins=plugins)
+
     def __init__(self, view: TrainingSelectView, plugins):
         self._view = view
         self._plugins = plugins
@@ -56,3 +84,20 @@ def _make_initial_training_grid(
         parent_select=parent_select,
         title=selected.label,
     )
+
+
+def _icon_to_text(info: PluginInfo) -> str:
+    """
+    Convert PluginInfo.icon (EmojiIcon | FileIcon) to a string that the GUI
+    can render in TrainingItemView.icon_text.
+
+    For now:
+    - EmojiIcon -> its symbol (e.g. "➕")
+    - FileIcon  -> the file path as string (Qt side can decide to load pixmap)
+    """
+    icon = info.icon
+    if isinstance(icon, EmojiIcon):
+        return icon.symbol
+    if isinstance(icon, FileIcon):
+        return str(icon.path)
+    return "?"
