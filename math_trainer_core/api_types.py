@@ -91,6 +91,7 @@ class QuestionScreen(Protocol):
 @dataclass(frozen=True)
 class Unlocked:
     mastery_level: int
+    score: int
 
 
 @dataclass(frozen=True)
@@ -98,14 +99,20 @@ class Locked:
     pass
 
 
-CellProgress = Union[Locked, Unlocked]
+RoomProgress = Union[Locked, Unlocked]
+
+
+@dataclass(frozen=True)
+class Room:
+    difficulty: int
+    time_pressure: int
 
 
 @dataclass
 class TrainingGridView:
     title: str
     # 2D grid: grid[y][x]
-    grid: dict[tuple[int, int], CellProgress]
+    grid: dict[Room, RoomProgress]
     current_x: int
     current_y: int
     hint: str

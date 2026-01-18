@@ -7,7 +7,8 @@ from ..api_types import (
     TrainingSelectScreen,
     TrainingGridScreen,
     TrainingGridView,
-    CellProgress,
+    Room,
+    RoomProgress,
     Locked,
     Unlocked,
     GridMove,
@@ -93,10 +94,11 @@ class TrainingGridImpl(TrainingGridScreen):
         )
         self._required_streak = max(1, info.required_streak or _DEFAULT_REQUIRED_STREAK)
 
-        self._current_x = 0
-        self._current_y = 0
-        self._unlocked: set[tuple[int, int]] = {(0, 0)}
+        self._current_x = 1
+        self._current_y = 1
+        self._unlocked: set[tuple[int, int]] = {(1, 1)}
         self._mastery_levels: dict[tuple[int, int], int] = {}
+        self._scores: dict[tuple[int, int], int] = {}
 
         self._view = TrainingGridView(
             title=self._config.title,
@@ -139,11 +141,15 @@ class TrainingGridImpl(TrainingGridScreen):
         time_limit_ms = self._time_limit_for_row(self._current_y)
         coord = (self._current_x, self._current_y)
         initial_highest = self._mastery_levels.get(coord, 0) * self._required_streak
+        initial_score = self._scores.get(coord, 0)
         inner = start_question_session(
             plugin=self._plugin,
             level_index=level_index,
             streak_to_advance_mastery=self._required_streak,
+            grid_x=self._current_x,
+            grid_y=self._current_y,
             initial_highest_streak=initial_highest,
+            initial_score=initial_score,
             time_limit_ms=time_limit_ms,
         )
         return _QuestionWrapper(inner=inner, grid=self, coord=coord)
@@ -162,23 +168,33 @@ class TrainingGridImpl(TrainingGridScreen):
             self._unlock_adjacent(coord)
         self._rebuild_view()
 
+    def record_score(self, coord: tuple[int, int], score: int) -> None:
+        if not self._is_valid_coord(coord[0], coord[1]):
+            return
+        self._scores[coord] = max(0, int(score))
+        self._rebuild_view()
+
     # ------------------------------------------------------------------ helpers
 
     def _is_valid_coord(self, x: int, y: int) -> bool:
-        if x < 0 or y < 0 or x >= self._config.width or y >= self._config.height:
+        if x < 1 or y < 1 or x > self._config.width or y > self._config.height:
             return False
-        return x < self._config.level_count
+        return x <= self._config.level_count
 
     def _difficulty_index(self, x: int) -> int:
-        return max(0, min(x, self._config.level_count - 1))
+        return max(0, min(x - 1, self._config.level_count - 1))
 
     def _time_limit_for_row(self, y: int) -> Optional[int]:
         if self._config.time_limits_ms:
-            return self._config.time_limits_ms[min(y, len(self._config.time_limits_ms) - 1)]
+            y_index = max(0, y - 1)
+            return self._config.time_limits_ms[min(y_index, len(self._config.time_limits_ms) - 1)]
         return _TIME_LIMITS_MS[-1]
 
     def _mastery_level(self, coord: tuple[int, int]) -> int:
         return self._mastery_levels.get(coord, 0)
+
+    def _score(self, coord: tuple[int, int]) -> int:
+        return self._scores.get(coord, 0)
 
     def _is_unlocked_or_completed(self, coord: tuple[int, int]) -> bool:
         return coord in self._unlocked or self._mastery_level(coord) > 0
@@ -213,22 +229,23 @@ class TrainingGridImpl(TrainingGridScreen):
         return f"{header} — Time limit: {time_text}. Arrows to move, Enter to start, Esc to go back"
 
     def _rebuild_view(self) -> None:
-        grid: dict[tuple[int, int], CellProgress] = {}
+        grid: dict[Room, RoomProgress] = {}
         locked_neighbors: set[tuple[int, int]] = set()
         for x, y in self._unlocked:
             for nx, ny in ((x + 1, y), (x, y + 1)):
                 if self._is_valid_coord(nx, ny) and (nx, ny) not in self._unlocked:
                     locked_neighbors.add((nx, ny))
-        for y in range(self._config.height):
-            for x in range(self._config.width):
-                if x >= self._config.level_count:
+        for y in range(1, self._config.height + 1):
+            for x in range(1, self._config.width + 1):
+                if x > self._config.level_count:
                     continue
                 coord = (x, y)
+                room = Room(difficulty=x, time_pressure=y)
                 mastery = self._mastery_level(coord)
                 if coord in self._unlocked or mastery > 0 or coord == (self._current_x, self._current_y):
-                    grid[(x, y)] = Unlocked(mastery_level=mastery)
+                    grid[room] = Unlocked(mastery_level=mastery, score=self._score(coord))
                 elif coord in locked_neighbors:
-                    grid[(x, y)] = Locked()
+                    grid[room] = Locked()
 
         self._view.grid = grid
         self._view.current_x = self._current_x
@@ -256,4 +273,5 @@ class _QuestionWrapper(QuestionScreen):
 
     def escape(self) -> TrainingGridScreen:
         self._grid.record_mastery(self._coord, self._inner.view.mastery_level)
+        self._grid.record_score(self._coord, self._inner.view.score)
         return self._grid

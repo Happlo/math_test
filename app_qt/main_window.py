@@ -35,7 +35,8 @@ from math_trainer_core.api_types import (
     SelectMove,
     GridMove,
     Progress,
-    CellProgress,
+    Room,
+    RoomProgress,
     Locked,
     Unlocked,
     AnswerEvent,
@@ -291,32 +292,36 @@ class MainWindow(QWidget):
         grid_layout = QGridLayout(grid_widget)
         grid_layout.setSpacing(0)
 
-        for (x, y), cell in view.grid.items():
+        for room, cell in view.grid.items():
             if isinstance(cell, Locked):
                 continue
-            room = self._build_room_widget(view, (x, y), cell)
-            grid_layout.addWidget(room, y * 2, x * 2)
+            room_widget = self._build_room_widget(view, room, cell)
+            grid_layout.addWidget(
+                room_widget,
+                (room.time_pressure - 1) * 2,
+                (room.difficulty - 1) * 2,
+            )
 
-        for (x, y), cell in view.grid.items():
-            right_neighbor = (x + 1, y)
+        for room, cell in view.grid.items():
+            right_neighbor = Room(difficulty=room.difficulty + 1, time_pressure=room.time_pressure)
             if right_neighbor in view.grid:
                 right_open = isinstance(view.grid[right_neighbor], Unlocked)
                 corridor = self._corridor_widget(is_open=right_open, vertical=False)
                 grid_layout.addWidget(
                     corridor,
-                    y * 2,
-                    x * 2 + 1,
+                    (room.time_pressure - 1) * 2,
+                    (room.difficulty - 1) * 2 + 1,
                     alignment=Qt.AlignmentFlag.AlignCenter,
                 )
 
-            down_neighbor = (x, y + 1)
+            down_neighbor = Room(difficulty=room.difficulty, time_pressure=room.time_pressure + 1)
             if down_neighbor in view.grid:
                 down_open = isinstance(view.grid[down_neighbor], Unlocked)
                 corridor = self._corridor_widget(is_open=down_open, vertical=True)
                 grid_layout.addWidget(
                     corridor,
-                    y * 2 + 1,
-                    x * 2,
+                    (room.time_pressure - 1) * 2 + 1,
+                    (room.difficulty - 1) * 2,
                     alignment=Qt.AlignmentFlag.AlignCenter,
                 )
 
@@ -329,11 +334,10 @@ class MainWindow(QWidget):
     def _build_room_widget(
         self,
         view: TrainingGridView,
-        coord: tuple[int, int],
-        cell: CellProgress,
+        coord: Room,
+        cell: RoomProgress,
     ) -> QWidget:
-        x, y = coord
-        is_current = x == view.current_x and y == view.current_y
+        is_current = coord.difficulty == view.current_x and coord.time_pressure == view.current_y
         mastery_level = cell.mastery_level if isinstance(cell, Unlocked) else 0
 
         room = QFrame()
@@ -368,7 +372,8 @@ class MainWindow(QWidget):
         header.addStretch()
         layout.addLayout(header)
 
-        score_lbl = QLabel("Score: 0")
+        score = cell.score if isinstance(cell, Unlocked) else 0
+        score_lbl = QLabel(f"Score: {score}")
         score_lbl.setFont(QFont("Segoe UI", 9))
         layout.addWidget(score_lbl)
 
