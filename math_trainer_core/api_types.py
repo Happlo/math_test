@@ -55,7 +55,6 @@ class QuestionView:
     highest_streak: int
     streak_to_advance_mastery: int
     mastery_level: int
-    score: int
     progress: List[Progress]
     question_idx: int
     input_enabled: bool

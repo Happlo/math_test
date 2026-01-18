@@ -36,24 +36,15 @@ def load_plugin_factories() -> Dict[str, LoadedPlugin]:
     result: Dict[str, LoadedPlugin] = {}
 
     for mod in pkgutil.iter_modules(package.__path__):
+        if not mod.ispkg:
+            continue
         package_name = f"{plugins_pkg}.{mod.name}"
 
-        # Prefer a submodule named "plugin" inside each plugin package
-        # e.g. math_trainer_core.plugins.addition.plugin
-        try_module_names = [
-            f"{package_name}.plugin",  # preferred
-            package_name,              # fallback if plugin.py not used
-        ]
-
-        module = None
-        for module_name in try_module_names:
-            try:
-                module = importlib.import_module(module_name)
-                break
-            except ModuleNotFoundError:
-                continue
-
-        if module is None:
+        # Only load subpackages that provide a plugin.py module
+        module_name = f"{package_name}.plugin"
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError:
             continue
 
         factory = getattr(module, "PLUGIN_FACTORY", None)

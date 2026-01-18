@@ -75,8 +75,8 @@ class PlusPlugin(Plugin):
         max_sum = base_max_sum + level * increment
 
         # Keep operands in range [0, max_sum], ensuring a + b <= max_sum
-        a = random.randint(0, max_sum)
-        b = random.randint(0, max_sum - a)
+        a = random.randint(2, max_sum -2)
+        b = random.randint(2, max_sum - a)
 
         return PlusQuestion(a=a, b=b)
 

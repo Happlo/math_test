@@ -37,18 +37,13 @@ class QuestionImpl:
         plugin: Plugin,
         level_index: int,
         streak_to_advance_mastery: int,
-        grid_x: int,
-        grid_y: int,
         initial_highest_streak: int = 0,
-        initial_score: int = 0,
         time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
     ):
         self._plugin = plugin
         self._level_index = level_index
         self._time_limit_ms = time_limit_ms
         self._streak_to_advance_mastery = max(1, streak_to_advance_mastery)
-        self._grid_x = max(0, int(grid_x))
-        self._grid_y = max(0, int(grid_y))
 
         # Public view object, mutated in place
         initial_highest = max(0, initial_highest_streak)
@@ -59,7 +54,6 @@ class QuestionImpl:
             highest_streak=initial_highest,
             streak_to_advance_mastery=self._streak_to_advance_mastery,
             mastery_level=initial_highest // self._streak_to_advance_mastery,
-            score=max(0, int(initial_score)),
             progress=[Progress.PENDING],
             question_idx=0,
             input_enabled=True,
@@ -172,7 +166,6 @@ class QuestionImpl:
                 self._view.mastery_level = (
                     self._view.highest_streak // self._view.streak_to_advance_mastery
                 )
-            self._view.score += self._grid_x * self._grid_y * self._view.mastery_level
             self._view.progress[self._view.question_idx] = Progress.CORRECT
             # Advance immediately to the next question on correct answers.
             self._view.question_idx += 1
@@ -225,10 +218,7 @@ def start_question_session(
     plugin: Plugin,
     level_index: int,
     streak_to_advance_mastery: int,
-    grid_x: int,
-    grid_y: int,
     initial_highest_streak: int = 0,
-    initial_score: int = 0,
     time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
 ):
     """
@@ -242,9 +232,6 @@ def start_question_session(
         plugin=plugin,
         level_index=level_index,
         streak_to_advance_mastery=streak_to_advance_mastery,
-        grid_x=grid_x,
-        grid_y=grid_y,
         initial_highest_streak=initial_highest_streak,
-        initial_score=initial_score,
         time_limit_ms=time_limit_ms,
     )
