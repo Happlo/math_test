@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QLineEdit,
     QFrame,
+    QProgressBar,
     QApplication,
 )
 
@@ -75,7 +76,7 @@ class MainWindow(QWidget):
         self._screen: TrainingSelectScreen = screen
         self._answer_edit: Optional[QLineEdit] = None
         self._last_question_idx: Optional[int] = None
-        self._time_label: Optional[QLabel] = None
+        self._time_bar: Optional[QProgressBar] = None
         self._skip_next_enter: bool = False
 
         self.setWindowTitle("Math Trainer")
@@ -222,14 +223,15 @@ class MainWindow(QWidget):
             or new_view.progress != was_progress
             or had_time != (new_view.time is not None)
         )
-        if state_changed or self._time_label is None:
+        if state_changed or self._time_bar is None:
             self._render()
             return
 
         if new_view.time is not None:
             ms_left = max(0, new_view.time.time_left_ms)
-            seconds = ms_left / 1000.0
-            self._time_label.setText(f"Time left: {seconds:.1f}s")
+            total_ms = max(1, new_view.time.time_per_question_ms)
+            self._time_bar.setRange(0, total_ms)
+            self._time_bar.setValue(ms_left)
 
     # ------------------------------------------------------------------ Rendering
 
@@ -241,7 +243,7 @@ class MainWindow(QWidget):
                 w.deleteLater()
 
         self._answer_edit = None
-        self._time_label = None
+        self._time_bar = None
 
     def _render(self) -> None:
         view = self._screen.view
@@ -412,6 +414,15 @@ class MainWindow(QWidget):
             self._answer_edit.setText(prev_text)
         self._content_layout.addWidget(self._answer_edit)
 
+        if view.time is not None:
+            total_ms = max(1, view.time.time_per_question_ms)
+            ms_left = max(0, view.time.time_left_ms)
+            self._time_bar = QProgressBar()
+            self._time_bar.setRange(0, total_ms)
+            self._time_bar.setValue(ms_left)
+            self._time_bar.setTextVisible(False)
+            self._content_layout.addWidget(self._time_bar)
+
         if view.input_enabled:
             self._skip_next_enter = False
             QTimer.singleShot(
@@ -455,14 +466,6 @@ class MainWindow(QWidget):
             progress_layout.addWidget(lbl, row, col)
 
         self._content_layout.addWidget(progress_widget)
-
-        # Timer display (if any)
-        if view.time is not None:
-            ms_left = max(0, view.time.time_left_ms)
-            seconds = ms_left / 1000.0
-            self._time_label = QLabel(f"Time left: {seconds:.1f}s")
-            self._time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self._content_layout.addWidget(self._time_label)
 
         hint = QLabel("Enter to answer / continue, Esc to go back")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)

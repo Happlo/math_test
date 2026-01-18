@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 from ..api_types import (
     TrainingSelectScreen,
@@ -18,7 +18,20 @@ from .question_impl import start_question_session
 
 
 _DEFAULT_INFINITE_LEVELS = 25
-_TIME_LIMITS_MS = [20000, 15000, 10000, 7000, 5000]
+_TIME_LIMITS_MS: list[Optional[int]] = [
+    None,
+    60000,
+    30000,
+    15000,
+    10000,
+    7000,
+    5000,
+    4000,
+    3000,
+    2000,
+    1000,
+    500,
+]
 _DEFAULT_REQUIRED_STREAK = 5
 
 
@@ -37,6 +50,15 @@ def _grid_dimensions(level_count: int) -> Tuple[int, int]:
     return width, height
 
 
+def _format_time_limit(time_limit_ms: Optional[int]) -> str:
+    if time_limit_ms is None:
+        return "No timer"
+    seconds = time_limit_ms / 1000.0
+    if time_limit_ms % 1000 == 0:
+        return f"{int(seconds)}s"
+    return f"{seconds:.1f}s"
+
+
 @dataclass(frozen=True)
 class _GridConfig:
     title: str
@@ -44,7 +66,7 @@ class _GridConfig:
     level_count: int
     width: int
     height: int
-    time_limits_ms: List[int]
+    time_limits_ms: List[Optional[int]]
 
 
 class TrainingGridImpl(TrainingGridScreen):
@@ -150,7 +172,7 @@ class TrainingGridImpl(TrainingGridScreen):
     def _difficulty_index(self, x: int) -> int:
         return max(0, min(x, self._config.level_count - 1))
 
-    def _time_limit_for_row(self, y: int) -> int:
+    def _time_limit_for_row(self, y: int) -> Optional[int]:
         if self._config.time_limits_ms:
             return self._config.time_limits_ms[min(y, len(self._config.time_limits_ms) - 1)]
         return _TIME_LIMITS_MS[-1]
@@ -180,7 +202,7 @@ class TrainingGridImpl(TrainingGridScreen):
         index = self._difficulty_index(self._current_x)
         label = self._level_label(index)
         time_limit_ms = self._time_limit_for_row(self._current_y)
-        time_text = f"{time_limit_ms / 1000:.1f}s"
+        time_text = _format_time_limit(time_limit_ms)
         if isinstance(self._config.mode, Chapters):
             header = f"Chapter {index + 1}/{self._config.level_count}: {label}"
         else:

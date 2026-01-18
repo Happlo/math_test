@@ -1,9 +1,14 @@
+import os
 import sys
 
 from PyQt6.QtWidgets import QApplication
 
 from math_trainer_core.api import CoreApi
 from app_qt.main_window import MainWindow
+
+
+def _is_wayland_session() -> bool:
+    return os.environ.get("XDG_SESSION_TYPE") == "wayland" or "WAYLAND_DISPLAY" in os.environ
 
 
 def main() -> int:
@@ -13,7 +18,8 @@ def main() -> int:
     screen = CoreApi.Start()
 
     window = MainWindow(screen)
-    window.resize(640, 480)
+    if not _is_wayland_session():
+        window.resize(640, 480)
     window.show()
 
     return app.exec()
