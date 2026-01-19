@@ -12,7 +12,7 @@ from ..api_types import (
     AnswerEvent,
     NextEvent,
 )
-from ..plugin_api import Plugin, AnswerResult, QuestionResult
+from ..plugins.plugin_api import Plugin, AnswerResult, QuestionResult
 
 
 DEFAULT_TIME_LIMIT_MS: Optional[int] = None  # e.g. 5000 for 5 seconds

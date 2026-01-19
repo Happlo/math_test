@@ -7,8 +7,8 @@ from ..api_types import (
     TrainingItemView,
     SelectMove,
 )
-from ..plugin_api import Plugin, PluginInfo, EmojiIcon, FileIcon
-from ..plugin_loader import load_plugin_factories
+from ..plugins.plugin_api import Plugin, PluginInfo, EmojiIcon, FileIcon
+from ..plugins.plugin_loader import load_plugin_factories
 from .training_grid_impl import TrainingGridImpl
 
 

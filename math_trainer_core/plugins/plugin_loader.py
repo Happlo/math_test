@@ -21,8 +21,8 @@ def load_plugin_factories() -> Dict[str, LoadedPlugin]:
     Expected layout per plugin:
 
         math_trainer_core/
-          plugin_api.py
           plugins/
+            plugin_api.py
             addition/
               __init__.py  (can be empty)
               plugin.py    (defines PLUGIN_FACTORY)

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import List
 import random
 
-from ...plugin_api import (
+from ..plugin_api import (
     AnswerResult,
     Difficulty,
     EmojiIcon,

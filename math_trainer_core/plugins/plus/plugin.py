@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import random
 
-from ...plugin_api import (
+from ..plugin_api import (
     AnswerResult,
     Difficulty,
     EmojiIcon,

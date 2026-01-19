@@ -14,7 +14,7 @@ from ..api_types import (
     GridMove,
     QuestionScreen,
 )
-from ..plugin_api import Plugin, PluginInfo, Difficulty, Chapters
+from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters
 from .question_impl import start_question_session, QuestionImpl
 
 
