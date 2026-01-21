@@ -13,9 +13,13 @@ from ..api_types import (
     Unlocked,
     GridMove,
     QuestionScreen,
+    RoomGrid,
+    TrainingId,
+    UserProfile,
 )
 from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters
 from .question_impl import start_question_session, QuestionImpl
+from .user import save_user
 
 
 _DEFAULT_INFINITE_LEVELS = 25
@@ -77,10 +81,14 @@ class TrainingGridImpl(TrainingGridScreen):
         info: PluginInfo,
         parent_select: TrainingSelectScreen,
         title: str | None = None,
+        user_profile: UserProfile | None = None,
+        training_id: TrainingId | None = None,
     ):
         self._plugin = plugin
         self._info = info
         self._parent_select = parent_select
+        self._profile = user_profile
+        self._training_id = training_id
 
         level_count = _level_count_for_mode(info.mode)
         width, height = _grid_dimensions(level_count)
@@ -100,6 +108,12 @@ class TrainingGridImpl(TrainingGridScreen):
         self._unlocked: set[Room] = {origin}
         self._mastery_levels: dict[Room, int] = {}
 
+        initial_progress = None
+        if self._profile is not None and self._training_id is not None:
+            initial_progress = self._profile.items.get(self._training_id)
+        if initial_progress:
+            self._load_progress(initial_progress)
+
         self._view = TrainingGridView(
             title=self._config.title,
             grid={},
@@ -108,6 +122,7 @@ class TrainingGridImpl(TrainingGridScreen):
             hint="",
         )
         self._rebuild_view()
+        self._sync_profile()
 
     @property
     def view(self) -> TrainingGridView:
@@ -164,6 +179,7 @@ class TrainingGridImpl(TrainingGridScreen):
         if mastery_level > 0:
             self._unlock_adjacent(coord)
         self._rebuild_view()
+        self._sync_profile()
 
     # ------------------------------------------------------------------ helpers
 
@@ -251,6 +267,35 @@ class TrainingGridImpl(TrainingGridScreen):
         self._view.current_x = self._current_x
         self._view.current_y = self._current_y
         self._view.hint = self._build_hint()
+
+    def _load_progress(self, progress: RoomGrid) -> None:
+        self._unlocked.clear()
+        self._mastery_levels.clear()
+        for room, status in progress.items():
+            if not self._is_valid_room(room):
+                continue
+            if isinstance(status, Unlocked):
+                self._unlocked.add(room)
+                if status.mastery_level > 0:
+                    self._mastery_levels[room] = status.mastery_level
+        self._unlocked.add(Room(difficulty=1, time_pressure=1))
+        for room in list(self._mastery_levels.keys()):
+            self._unlock_adjacent(room)
+
+    def _sync_profile(self) -> None:
+        if self._profile is None or self._training_id is None:
+            return
+        snapshot: RoomGrid = {}
+        rooms = set(self._unlocked)
+        rooms.update({room for room, mastery in self._mastery_levels.items() if mastery > 0})
+        for room in rooms:
+            if not self._is_valid_room(room):
+                continue
+            mastery = self._mastery_levels.get(room, 0)
+            score = room.difficulty * room.time_pressure * mastery
+            snapshot[room] = Unlocked(mastery_level=mastery, score=score)
+        self._profile.items[self._training_id] = snapshot
+        save_user(self._profile)
 
 
 class _QuestionWrapper(QuestionScreen):

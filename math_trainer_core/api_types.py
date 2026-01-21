@@ -106,12 +106,12 @@ class Room:
     difficulty: int
     time_pressure: int
 
+RoomGrid = dict[Room, RoomProgress]
 
 @dataclass
 class TrainingGridView:
     title: str
-    # 2D grid: grid[y][x]
-    grid: dict[Room, RoomProgress]
+    grid: RoomGrid
     current_x: int
     current_y: int
     hint: str
@@ -155,9 +155,10 @@ class SelectMove(Enum):
     UP = auto()
     DOWN = auto()
 
+TrainingId = str
 @dataclass
 class TrainingItemView:
-    training_id: str
+    training_id: TrainingId
     label: str
     description: str
     icon_text: str  # GUI maps this to emoji or pixmap
@@ -186,3 +187,9 @@ class TrainingSelectScreen(Protocol):
         Always possible: enter the grid for the selected training.
         """
         ...
+
+
+@dataclass
+class UserProfile:
+    name: str
+    items: dict[TrainingId, RoomGrid]

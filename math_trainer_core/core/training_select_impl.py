@@ -6,16 +6,22 @@ from ..api_types import (
     TrainingGridScreen,
     TrainingItemView,
     SelectMove,
+    UserProfile
 )
 from ..plugins.plugin_api import Plugin, PluginInfo, EmojiIcon, FileIcon
 from ..plugins.plugin_loader import load_plugin_factories
 from .training_grid_impl import TrainingGridImpl
+from .user import load_user
 
 
 class TrainingSelectImpl(TrainingSelectScreen):
     @staticmethod
-    def start() -> TrainingSelectScreen:
+    def start(user_profile: UserProfile | None = None) -> TrainingSelectScreen:
         plugins = load_plugin_factories()  # dict[id, LoadedPlugin]
+        if user_profile is None:
+            user_profile = load_user("Player")
+        if user_profile is None:
+            user_profile = UserProfile(name="Player", items={})
 
         items: list[TrainingItemView] = []
         for loaded in plugins.values():
@@ -38,11 +44,12 @@ class TrainingSelectImpl(TrainingSelectScreen):
         # TrainingSelectImpl will keep 'plugins' internally, so later when the
         # user presses Enter, it can create the right plugin instance and
         # transition to a TrainingGridScreen.
-        return TrainingSelectImpl(view=view, plugins=plugins)
+        return TrainingSelectImpl(view=view, plugins=plugins, user_profile=user_profile)
 
-    def __init__(self, view: TrainingSelectView, plugins):
+    def __init__(self, view: TrainingSelectView, plugins, user_profile: UserProfile):
         self._view = view
         self._plugins = plugins
+        self._user_profile = user_profile
 
     @property
     def view(self) -> TrainingSelectView:
@@ -69,6 +76,7 @@ class TrainingSelectImpl(TrainingSelectScreen):
             selected=selected,
             info=info,
             parent_select=self,
+            user_profile=self._user_profile,
         )
 
 
@@ -77,12 +85,15 @@ def _make_initial_training_grid(
     selected: TrainingItemView,
     info: PluginInfo,
     parent_select: TrainingSelectScreen,
+    user_profile: UserProfile,
 ) -> TrainingGridScreen:
     return TrainingGridImpl(
         plugin=plugin,
         info=info,
         parent_select=parent_select,
         title=selected.label,
+        user_profile=user_profile,
+        training_id=selected.training_id,
     )
 
 
