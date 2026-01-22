@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from .api_types import TrainingSelectScreen, UserProfile
-from .core.training_select_impl import TrainingSelectImpl  # concrete implementation
+from .api_types import TrainingSelectScreen, UserProfile, AuthResult
+from .core.training_select_impl import TrainingSelectImpl
+from .core.user import create_user, login
 
 class CoreApi:
     @staticmethod
@@ -14,3 +15,17 @@ class CoreApi:
         only about this screen and its view.
         """
         return TrainingSelectImpl.start(user_profile)
+
+    @staticmethod
+    def Login(name: str) -> AuthResult:
+        """
+        Login with the given user name.
+        """
+        return login(name)
+
+    @staticmethod
+    def CreateUser(name: str) -> AuthResult:
+        """
+        Create a new user with the given name.
+        """
+        return create_user(name)

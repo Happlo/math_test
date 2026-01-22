@@ -5,7 +5,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
 
-from ..api_types import Locked, Room, RoomGrid, RoomProgress, TrainingId, Unlocked
+from ..api_types import Locked, Room, RoomGrid, RoomProgress, TrainingId, Unlocked, AuthError, AuthResult, UserProfile
 
 
 _USERS_DIR = Path("users")
@@ -101,3 +101,38 @@ def _safe_int(value: Any, default: int = 0) -> int:
 def _sanitize_name(name: str) -> str:
     cleaned = "".join(ch for ch in name.strip() if ch.isalnum() or ch in {"-", "_"})
     return cleaned or "player"
+
+
+def normalize_name(name: str) -> str:
+    return _sanitize_name(name)
+
+
+def login(name: str) -> AuthResult:
+    validated_name, error = _validate_name(name)
+    if error is not None:
+        return error
+    stored = load_user(validated_name)
+    if stored is None:
+        return AuthError(message=f"User '{validated_name}' not found.")
+    return UserProfile(name=stored.name)
+
+
+def create_user(name: str) -> AuthResult:
+    validated_name, error = _validate_name(name)
+    if error is not None:
+        return error
+    if load_user(validated_name) is not None:
+        return AuthError(message="User already exists.")
+    stored = StoredUserProfile(name=validated_name, items={})
+    save_user(stored)
+    return UserProfile(name=validated_name)
+
+
+def _validate_name(name: str) -> tuple[str, AuthError | None]:
+    stripped = name.strip()
+    if not stripped:
+        return "", AuthError(message="Name cannot be empty.")
+    normalized = normalize_name(stripped)
+    if normalized != stripped:
+        return "", AuthError(message="Name may contain only letters, numbers, '-' or '_'.")
+    return stripped, None

@@ -192,3 +192,10 @@ class TrainingSelectScreen(Protocol):
 @dataclass
 class UserProfile:
     name: str
+
+
+@dataclass(frozen=True)
+class AuthError:
+    message: str
+
+AuthResult = Union[UserProfile, AuthError]
