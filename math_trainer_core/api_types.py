@@ -192,4 +192,3 @@ class TrainingSelectScreen(Protocol):
 @dataclass
 class UserProfile:
     name: str
-    items: dict[TrainingId, RoomGrid]

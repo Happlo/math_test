@@ -2,22 +2,28 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
-from ..api_types import Locked, Room, RoomGrid, RoomProgress, TrainingId, Unlocked, UserProfile
+from ..api_types import Locked, Room, RoomGrid, RoomProgress, TrainingId, Unlocked
 
 
 _USERS_DIR = Path("users")
 
+@dataclass
+class StoredUserProfile:
+    name: str
+    items: dict[TrainingId, RoomGrid]
 
-def save_user(profile: UserProfile) -> None:
+
+def save_user(profile: StoredUserProfile) -> None:
     _USERS_DIR.mkdir(parents=True, exist_ok=True)
     path = _USERS_DIR / f"{_sanitize_name(profile.name)}.json"
     payload = _profile_to_dict(profile)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def load_user(name: str) -> UserProfile | None:
+def load_user(name: str) -> StoredUserProfile | None:
     path = _USERS_DIR / f"{_sanitize_name(name)}.json"
     if not path.exists():
         return None
@@ -25,14 +31,14 @@ def load_user(name: str) -> UserProfile | None:
     return _profile_from_dict(raw, fallback_name=name)
 
 
-def _profile_to_dict(profile: UserProfile) -> dict[str, Any]:
+def _profile_to_dict(profile: StoredUserProfile) -> dict[str, Any]:
     items: dict[str, list[dict[str, Any]]] = {}
     for training_id, grid in profile.items.items():
         items[training_id] = [_entry_to_dict(room, status) for room, status in grid.items()]
     return {"name": profile.name, "items": items}
 
 
-def _profile_from_dict(raw: dict[str, Any], fallback_name: str) -> UserProfile:
+def _profile_from_dict(raw: dict[str, Any], fallback_name: str) -> StoredUserProfile:
     name = raw.get("name") or fallback_name
     items: dict[TrainingId, RoomGrid] = {}
     raw_items = raw.get("items", {})
@@ -45,7 +51,7 @@ def _profile_from_dict(raw: dict[str, Any], fallback_name: str) -> UserProfile:
                     if room is not None and status is not None:
                         grid[room] = status
             items[training_id] = grid
-    return UserProfile(name=name, items=items)
+    return StoredUserProfile(name=name, items=items)
 
 
 def _entry_to_dict(room: Room, status: RoomProgress) -> dict[str, Any]:

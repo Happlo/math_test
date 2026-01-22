@@ -6,22 +6,22 @@ from ..api_types import (
     TrainingGridScreen,
     TrainingItemView,
     SelectMove,
-    UserProfile
+    UserProfile,
 )
 from ..plugins.plugin_api import Plugin, PluginInfo, EmojiIcon, FileIcon
 from ..plugins.plugin_loader import load_plugin_factories
 from .training_grid_impl import TrainingGridImpl
-from .user import load_user
+from .user import load_user, StoredUserProfile
 
 
 class TrainingSelectImpl(TrainingSelectScreen):
     @staticmethod
     def start(user_profile: UserProfile | None = None) -> TrainingSelectScreen:
         plugins = load_plugin_factories()  # dict[id, LoadedPlugin]
-        if user_profile is None:
-            user_profile = load_user("Player")
-        if user_profile is None:
-            user_profile = UserProfile(name="Player", items={})
+        name = user_profile.name if user_profile is not None else "Player"
+        stored_profile = load_user(name)
+        if stored_profile is None:
+            stored_profile = StoredUserProfile(name=name, items={})
 
         items: list[TrainingItemView] = []
         for loaded in plugins.values():
@@ -44,9 +44,9 @@ class TrainingSelectImpl(TrainingSelectScreen):
         # TrainingSelectImpl will keep 'plugins' internally, so later when the
         # user presses Enter, it can create the right plugin instance and
         # transition to a TrainingGridScreen.
-        return TrainingSelectImpl(view=view, plugins=plugins, user_profile=user_profile)
+        return TrainingSelectImpl(view=view, plugins=plugins, user_profile=stored_profile)
 
-    def __init__(self, view: TrainingSelectView, plugins, user_profile: UserProfile):
+    def __init__(self, view: TrainingSelectView, plugins, user_profile: StoredUserProfile):
         self._view = view
         self._plugins = plugins
         self._user_profile = user_profile
@@ -85,7 +85,7 @@ def _make_initial_training_grid(
     selected: TrainingItemView,
     info: PluginInfo,
     parent_select: TrainingSelectScreen,
-    user_profile: UserProfile,
+    user_profile: StoredUserProfile,
 ) -> TrainingGridScreen:
     return TrainingGridImpl(
         plugin=plugin,

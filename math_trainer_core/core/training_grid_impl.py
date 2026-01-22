@@ -15,11 +15,10 @@ from ..api_types import (
     QuestionScreen,
     RoomGrid,
     TrainingId,
-    UserProfile,
 )
 from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters
 from .question_impl import start_question_session, QuestionImpl
-from .user import save_user
+from .user import save_user, StoredUserProfile
 
 
 _DEFAULT_INFINITE_LEVELS = 25
@@ -81,7 +80,7 @@ class TrainingGridImpl(TrainingGridScreen):
         info: PluginInfo,
         parent_select: TrainingSelectScreen,
         title: str | None = None,
-        user_profile: UserProfile | None = None,
+        user_profile: StoredUserProfile | None = None,
         training_id: TrainingId | None = None,
     ):
         self._plugin = plugin
