@@ -265,6 +265,10 @@ class MainWindow(QWidget):
     def _render_select(self, view: TrainingSelectView) -> None:
         self._clear_content()
         self._title_label.setText(view.title)
+        meta = QLabel(f"Player: {view.player_name}  |  Total score: {view.total_score}")
+        meta.setFont(QFont("Segoe UI", 11))
+        meta.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._content_layout.addWidget(meta)
 
         for idx, item in enumerate(view.items):
             prefix = "👉 " if idx == view.selected_index else "   "

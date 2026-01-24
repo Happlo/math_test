@@ -39,6 +39,8 @@ class TrainingSelectImpl(TrainingSelectScreen):
 
         view = TrainingSelectView(
             title="Choose training",
+            player_name=stored_profile.name,
+            total_score=_total_score_all(stored_profile),
             items=items,
             selected_index=0,
         )
@@ -124,4 +126,11 @@ def _total_score(profile: StoredUserProfile, training_id: str) -> int:
     for status in grid.values():
         if isinstance(status, Unlocked):
             total += status.score
+    return total
+
+
+def _total_score_all(profile: StoredUserProfile) -> int:
+    total = 0
+    for training_id in profile.items:
+        total += _total_score(profile, training_id)
     return total

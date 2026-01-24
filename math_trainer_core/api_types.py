@@ -168,6 +168,8 @@ class TrainingItemView:
 @dataclass
 class TrainingSelectView:
     title: str
+    player_name: str
+    total_score: int
     items: List[TrainingItemView]
     selected_index: int
 
