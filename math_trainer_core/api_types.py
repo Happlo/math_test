@@ -162,6 +162,7 @@ class TrainingItemView:
     label: str
     description: str
     icon_text: str  # GUI maps this to emoji or pixmap
+    score: int
 
 
 @dataclass

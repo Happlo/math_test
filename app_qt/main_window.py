@@ -268,7 +268,7 @@ class MainWindow(QWidget):
 
         for idx, item in enumerate(view.items):
             prefix = "👉 " if idx == view.selected_index else "   "
-            text = f"{prefix}{item.icon_text}  {item.label}"
+            text = f"{prefix}{item.icon_text}  {item.label} (Score: {item.score})"
             lbl = QLabel(text)
             lbl.setFont(QFont("Segoe UI", 16))
             self._content_layout.addWidget(lbl)

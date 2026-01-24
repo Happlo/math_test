@@ -7,6 +7,7 @@ from ..api_types import (
     TrainingItemView,
     SelectMove,
     UserProfile,
+    Unlocked,
 )
 from ..plugins.plugin_api import Plugin, PluginInfo, EmojiIcon, FileIcon
 from ..plugins.plugin_loader import load_plugin_factories
@@ -32,6 +33,7 @@ class TrainingSelectImpl(TrainingSelectScreen):
                     label=info.name,
                     description=info.description,
                     icon_text=_icon_to_text(info),
+                    score=_total_score(stored_profile, info.id),
                 )
             )
 
@@ -112,3 +114,14 @@ def _icon_to_text(info: PluginInfo) -> str:
     if isinstance(icon, FileIcon):
         return str(icon.path)
     return "?"
+
+
+def _total_score(profile: StoredUserProfile, training_id: str) -> int:
+    grid = profile.items.get(training_id)
+    if not grid:
+        return 0
+    total = 0
+    for status in grid.values():
+        if isinstance(status, Unlocked):
+            total += status.score
+    return total
