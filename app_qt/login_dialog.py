@@ -14,13 +14,13 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
 )
 
-from math_trainer_core.api import CoreApi
-from math_trainer_core.api_types import AuthError, UserProfile
+from math_trainer_core.api_types import AuthError, UserProfile, LoginScreen
 
 
 class LoginDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, screen: LoginScreen, parent=None):
         super().__init__(parent)
+        self._screen = screen
         self._profile: Optional[UserProfile] = None
 
         self.setWindowTitle("Login")
@@ -31,6 +31,19 @@ class LoginDialog(QDialog):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
         root.addWidget(title)
+
+        if self._screen.view.highscore:
+            score_lines = []
+            for name, score in sorted(
+                self._screen.view.highscore.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            ):
+                score_lines.append(f"{name}: {score}")
+            score_label = QLabel("High scores:\n" + "\n".join(score_lines))
+            score_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            score_label.setFont(QFont("Segoe UI", 10))
+            root.addWidget(score_label)
 
         name_row = QHBoxLayout()
         name_row.addWidget(QLabel("Name:"))
@@ -66,12 +79,12 @@ class LoginDialog(QDialog):
 
     def _on_login(self) -> None:
         name = self._name_edit.text()
-        result = CoreApi.Login(name)
+        result = self._screen.Login(name)
         self._handle_result(result)
 
     def _on_create(self) -> None:
         name = self._name_edit.text()
-        result = CoreApi.CreateUser(name)
+        result = self._screen.CreateUser(name)
         self._handle_result(result)
 
     def _handle_result(self, result: UserProfile | AuthError) -> None:

@@ -11,7 +11,7 @@ Qt.Key.Key_Return
 Qt.Key.Key_Enter
 Qt.Key.Key_Escape
 
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QWidget,
@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QFrame,
     QProgressBar,
-    QApplication,
 )
 
 from math_trainer_core.api_types import (
@@ -72,6 +71,8 @@ def _mastery_emoji(streak: int) -> str:
 
 
 class MainWindow(QWidget):
+    request_login = pyqtSignal()
+
     def __init__(self, screen: TrainingSelectScreen):
         super().__init__()
         self._screen: TrainingSelectScreen = screen
@@ -121,6 +122,9 @@ class MainWindow(QWidget):
             if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 self._screen = self._screen.enter()
                 self._render()
+                return
+            if key == Qt.Key.Key_Escape:
+                self.request_login.emit()
                 return
 
         # Training grid: arrows, enter, escape
@@ -284,7 +288,7 @@ class MainWindow(QWidget):
             desc_lbl.setFont(QFont("Segoe UI", 10))
             self._content_layout.addWidget(desc_lbl)
 
-        hint = QLabel("Use ↑/↓ to choose, Enter to start")
+        hint = QLabel("Use ↑/↓ to choose, Enter to start, Esc for login")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_layout.addWidget(hint)
 

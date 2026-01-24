@@ -192,9 +192,11 @@ class TrainingSelectScreen(Protocol):
         ...
 
 
+UserName = str
+
 @dataclass
 class UserProfile:
-    name: str
+    name: UserName
 
 
 @dataclass(frozen=True)
@@ -202,3 +204,22 @@ class AuthError:
     message: str
 
 AuthResult = Union[UserProfile, AuthError]
+
+
+@dataclass
+class LoginView:
+    highscore: dict[UserName, int]
+
+class LoginScreen(Protocol):
+    @property
+    def view(self) -> LoginView:
+        ...
+
+    def Start(self, user_profile: UserProfile | None = None) -> TrainingSelectScreen:
+        ...
+
+    def Login(self, name: str) -> AuthResult:
+        ...
+
+    def CreateUser(self, name: str) -> AuthResult:
+        ...

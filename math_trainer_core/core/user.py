@@ -30,6 +30,20 @@ def load_user(name: str) -> StoredUserProfile | None:
     raw = json.loads(path.read_text(encoding="utf-8"))
     return _profile_from_dict(raw, fallback_name=name)
 
+def list_user_names() -> list[str]:
+    if not _USERS_DIR.exists():
+        return []
+    return sorted(path.stem for path in _USERS_DIR.glob("*.json"))
+
+
+def load_all_users() -> list[StoredUserProfile]:
+    profiles: list[StoredUserProfile] = []
+    for name in list_user_names():
+        profile = load_user(name)
+        if profile is not None:
+            profiles.append(profile)
+    return profiles
+
 
 def _profile_to_dict(profile: StoredUserProfile) -> dict[str, Any]:
     items: dict[str, list[dict[str, Any]]] = {}
@@ -126,6 +140,15 @@ def create_user(name: str) -> AuthResult:
     stored = StoredUserProfile(name=validated_name, items={})
     save_user(stored)
     return UserProfile(name=validated_name)
+
+
+def total_score(profile: StoredUserProfile) -> int:
+    total = 0
+    for grid in profile.items.values():
+        for status in grid.values():
+            if isinstance(status, Unlocked):
+                total += status.score
+    return total
 
 
 def _validate_name(name: str) -> tuple[str, AuthError | None]:
