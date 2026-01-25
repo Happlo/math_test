@@ -179,6 +179,7 @@ class TrainingGridImpl(TrainingGridScreen):
         self._mastery_levels[coord] = mastery_level
         if mastery_level > 0:
             self._unlock_adjacent(coord)
+            self._backfill_mastery(coord, mastery_level)
         self._rebuild_view()
         self._sync_profile()
 
@@ -216,6 +217,18 @@ class TrainingGridImpl(TrainingGridScreen):
             if self._is_valid_room(neighbor) and neighbor not in self._unlocked:
                 if self._mastery_level(neighbor) == 0:
                     self._unlocked.add(neighbor)
+
+    def _backfill_mastery(self, coord: Room, mastery_level: int) -> None:
+        for x in range(1, coord.difficulty + 1):
+            for y in range(1, coord.time_pressure + 1):
+                room = Room(difficulty=x, time_pressure=y)
+                if not self._is_valid_room(room):
+                    continue
+                if room not in self._unlocked:
+                    self._unlocked.add(room)
+                prev = self._mastery_levels.get(room, 0)
+                if mastery_level > prev:
+                    self._mastery_levels[room] = mastery_level
 
     def _level_label(self, index: int) -> str:
         if isinstance(self._config.mode, Chapters):
