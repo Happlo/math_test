@@ -18,38 +18,42 @@ from ..plugin_api import (
 @dataclass(frozen=True)
 class PlaceValueQuestion:
     terms: list[int]
-    stacked: bool
+
+    _FIGURE_SPACE = "\u2007"
+
+    def _format_number(self, value: int) -> str:
+        return f"{value:,}".replace(",", self._FIGURE_SPACE)
+
+    def _pad_left(self, text: str, width: int) -> str:
+        pad_len = max(0, width - len(text))
+        return f"{self._FIGURE_SPACE * pad_len}{text}"
 
     def read_question(self) -> str:
-        if not self.stacked:
-            return f"{' + '.join(str(term) for term in self.terms)} ="
         return self._format_stacked()
 
     def _format_stacked(self, answer: int | None = None) -> str:
-        width = max(len(str(term)) for term in self.terms)
+        width = max(len(self._format_number(term)) for term in self.terms)
         if answer is not None:
-            width = max(width, len(str(answer)))
+            width = max(width, len(self._format_number(answer)))
 
         lines = []
         for index, term in enumerate(self.terms):
-            prefix = "+ " if index > 0 else "  "
-            lines.append(f"{prefix}{str(term).rjust(width)}")
+            prefix = f"+{self._FIGURE_SPACE}" if index > 0 else f"{self._FIGURE_SPACE}{self._FIGURE_SPACE}"
+            lines.append(f"{prefix}{self._pad_left(self._format_number(term), width)}")
 
         if answer is not None:
-            lines.append(f"= {str(answer).rjust(width)}")
+            lines.append(f"={self._FIGURE_SPACE}{self._pad_left(self._format_number(answer), width)}")
 
         return "\n".join(lines)
 
     def _format_answer_text(self, correct: int) -> str:
-        if not self.stacked:
-            return f"{self.read_question()} {correct}"
         return self._format_stacked(answer=correct)
 
     def answer_question(self, answer: str) -> QuestionResult:
         correct = sum(self.terms)
 
         try:
-            value = int(answer.strip())
+            value = int("".join(answer.split()))
         except ValueError:
             return QuestionResult(
                 result=AnswerResult.INVALID_INPUT,
@@ -78,7 +82,6 @@ class PlaceValueQuestion:
 class PlaceValueAdditionPlugin(Plugin):
     def make_question(self, difficulty_or_chapter: int) -> Question:
         level = max(0, int(difficulty_or_chapter))
-        stacked = level < 5
 
         max_power = 2 + level
         min_terms = 2
@@ -89,7 +92,7 @@ class PlaceValueAdditionPlugin(Plugin):
         terms = [random.randint(1, 9) * (10**power) for power in powers]
         terms.sort(reverse=True)
 
-        return PlaceValueQuestion(terms=terms, stacked=stacked)
+        return PlaceValueQuestion(terms=terms)
 
 
 class PlaceValueAdditionPluginFactory:
