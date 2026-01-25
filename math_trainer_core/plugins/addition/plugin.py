@@ -19,32 +19,54 @@ from ..plugin_api import (
 class PlusQuestion:
     a: int
     b: int
+    _FIGURE_SPACE = "\u2007"
+
+    def _format_number(self, value: int) -> str:
+        return str(value)
+
+    def _pad_left(self, text: str, width: int) -> str:
+        pad_len = max(0, width - len(text))
+        return f"{self._FIGURE_SPACE * pad_len}{text}"
+
+    def _format_stacked(self, answer: int | None = None) -> str:
+        width = max(len(self._format_number(self.a)), len(self._format_number(self.b)))
+        if answer is not None:
+            width = max(width, len(self._format_number(answer)))
+
+        top = f"{self._FIGURE_SPACE}{self._FIGURE_SPACE}{self._pad_left(self._format_number(self.a), width)}"
+        bottom = f"+{self._FIGURE_SPACE}{self._pad_left(self._format_number(self.b), width)}"
+        lines = [top, bottom]
+
+        if answer is not None:
+            lines.append(f"={self._FIGURE_SPACE}{self._pad_left(self._format_number(answer), width)}")
+
+        return "\n".join(lines)
 
     def read_question(self) -> str:
-        return f"{self.a} + {self.b} ="
+        return self._format_stacked()
 
     def answer_question(self, answer: str) -> QuestionResult:
         correct = self.a + self.b
 
         try:
-            value = int(answer.strip())
+            value = int("".join(answer.split()))
         except ValueError:
             # Core will typically show its own "invalid input" message,
             # but we still provide the correct answer here.
             return QuestionResult(
                 result=AnswerResult.INVALID_INPUT,
-                display_answer_text=f"{self.a} + {self.b} = {correct}",
+                display_answer_text=self._format_stacked(answer=correct),
             )
 
         if value == correct:
             return QuestionResult(
                 result=AnswerResult.CORRECT,
-                display_answer_text=f"{self.a} + {self.b} = {correct}",
+                display_answer_text=self._format_stacked(answer=correct),
             )
 
         return QuestionResult(
             result=AnswerResult.WRONG,
-            display_answer_text=f"{self.a} + {self.b} = {correct}",
+            display_answer_text=self._format_stacked(answer=correct),
         )
 
     def reveal_answer(self) -> QuestionResult:
@@ -55,7 +77,7 @@ class PlusQuestion:
         correct = self.a + self.b
         return QuestionResult(
             result=AnswerResult.WRONG,
-            display_answer_text=f"{self.a} + {self.b} = {correct}",
+            display_answer_text=self._format_stacked(answer=correct),
         )
 
 
