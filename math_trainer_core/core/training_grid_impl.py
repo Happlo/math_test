@@ -22,6 +22,7 @@ from .user import save_user, StoredUserProfile
 
 
 _DEFAULT_INFINITE_LEVELS = 25
+_MAX_MASTERY_LEVEL = 10
 _TIME_LIMITS_MS: list[Optional[int]] = [
     None,
     60000,
@@ -171,6 +172,7 @@ class TrainingGridImpl(TrainingGridScreen):
     def record_mastery(self, coord: Room, mastery_level: int) -> None:
         if not self._is_valid_room(coord):
             return
+        mastery_level = min(mastery_level, _MAX_MASTERY_LEVEL)
         prev = self._mastery_levels.get(coord, 0)
         if mastery_level <= prev:
             return

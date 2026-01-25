@@ -16,6 +16,7 @@ from ..plugins.plugin_api import Plugin, AnswerResult, QuestionResult
 
 
 DEFAULT_TIME_LIMIT_MS: Optional[int] = None  # e.g. 5000 for 5 seconds
+_MAX_MASTERY_LEVEL = 10
 
 
 def _now_ms() -> int:
@@ -47,13 +48,16 @@ class QuestionImpl:
 
         # Public view object, mutated in place
         initial_highest = max(0, initial_highest_streak)
+        initial_mastery = min(
+            initial_highest // self._streak_to_advance_mastery, _MAX_MASTERY_LEVEL
+        )
         self._view = QuestionView(
             question_text="",
             feedback_text="",
             current_streak=0,
             highest_streak=initial_highest,
             streak_to_advance_mastery=self._streak_to_advance_mastery,
-            mastery_level=initial_highest // self._streak_to_advance_mastery,
+            mastery_level=initial_mastery,
             progress=[Progress.PENDING],
             question_idx=0,
             input_enabled=True,
@@ -164,7 +168,10 @@ class QuestionImpl:
             if self._view.current_streak > self._view.highest_streak:
                 self._view.highest_streak = self._view.current_streak
                 self._view.mastery_level = (
-                    self._view.highest_streak // self._view.streak_to_advance_mastery
+                    min(
+                        self._view.highest_streak // self._view.streak_to_advance_mastery,
+                        _MAX_MASTERY_LEVEL,
+                    )
                 )
             self._view.progress[self._view.question_idx] = Progress.CORRECT
             # Advance immediately to the next question on correct answers.
