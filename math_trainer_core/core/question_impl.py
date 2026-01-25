@@ -130,8 +130,7 @@ class QuestionImpl:
 
         # render question text
         self._view.question_text = (
-            f"Question {self._view.question_idx + 1}:\n"
-            f"{self._question.read_question()}"
+            f"Streak: {self._view.current_streak}\n{self._question.read_question()}"
         )
 
     def _handle_refresh(self) -> QuestionScreen:
