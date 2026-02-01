@@ -5,7 +5,7 @@ import random
 
 from ..plugin_api import (
     AnswerResult,
-    Difficulty,
+    Chapters,
     EmojiIcon,
     Plugin,
     PluginFactory,
@@ -55,19 +55,12 @@ class NextCharQuestion:
 
 class NextCharPlugin(Plugin):
     def make_question(self, difficulty_or_chapter: int) -> Question:
-        level = max(0, int(difficulty_or_chapter))
         alphabet = _SWEDISH_ALPHABET
-
-        base_max_index = 9
-        step = 5
-        max_index = min(len(alphabet) - 1, base_max_index + level * step)
-        max_index = max(1, max_index)
-
-        idx = random.randint(0, max_index - 1)
-        current_char = alphabet[idx]
-        expected_char = alphabet[idx + 1]
-
-        return NextCharQuestion(current_char=current_char, expected_char=expected_char)
+        idx = random.randint(0, len(alphabet) - 2)
+        return NextCharQuestion(
+            current_char=alphabet[idx],
+            expected_char=alphabet[idx + 1],
+        )
 
 
 class NextCharPluginFactory:
@@ -77,7 +70,7 @@ class NextCharPluginFactory:
             id="next_char_se",
             name="Nästa bokstav (svenska alfabetet)",
             description="Frågar efter nästa bokstav i svenska alfabetet (inkl. å, ä, ö).",
-            mode=Difficulty(max_level=0),
+            mode=Chapters(chapters=["Standard"]),
             icon=EmojiIcon("🔤"),
             required_streak=None,
         )
