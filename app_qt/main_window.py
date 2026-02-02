@@ -11,7 +11,7 @@ Qt.Key.Key_Return
 Qt.Key.Key_Enter
 Qt.Key.Key_Escape
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QPoint, QEasingCurve
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QWidget,
@@ -80,6 +80,10 @@ class MainWindow(QWidget):
         self._last_question_idx: Optional[int] = None
         self._time_bar: Optional[QProgressBar] = None
         self._skip_next_enter: bool = False
+        self._last_grid_move: Optional[GridMove] = None
+        self._last_grid_centered_before: Optional[bool] = None
+        self._grid_anim: Optional[QPropertyAnimation] = None
+        self._turtle_anim: Optional[QPropertyAnimation] = None
 
         self.setWindowTitle("Math Trainer")
 
@@ -103,6 +107,40 @@ class MainWindow(QWidget):
         self._render()
 
     # ------------------------------------------------------------------ GUI → core
+    def _window_range(
+        self, center: int, min_value: int, max_value: int, size: int
+    ) -> tuple[int, int]:
+        span = max_value - min_value + 1
+        if span <= size:
+            return min_value, max_value
+        half = size // 2
+        start = max(min_value, center - half)
+        end = start + size - 1
+        if end > max_value:
+            end = max_value
+            start = end - size + 1
+        return start, end
+
+    def _grid_window(self, view: TrainingGridView, max_window: int) -> tuple[int, int, int, int]:
+        max_x = max(room.difficulty for room in view.grid)
+        max_y = max(room.time_pressure for room in view.grid)
+        x_start, x_end = self._window_range(view.current_x, 1, max_x, max_window)
+        y_start, y_end = self._window_range(view.current_y, 1, max_y, max_window)
+        return x_start, x_end, y_start, y_end
+
+    def _is_grid_window_centered(self, view: TrainingGridView, max_window: int) -> bool:
+        if not view.grid:
+            return False
+        x_start, x_end, y_start, y_end = self._grid_window(view, max_window)
+        cols = x_end - x_start + 1
+        rows = y_end - y_start + 1
+        half_window = max_window // 2
+        return (
+            cols == max_window
+            and rows == max_window
+            and x_start == view.current_x - half_window
+            and y_start == view.current_y - half_window
+        )
 
     def keyPressEvent(self, event) -> None:
         key = event.key()
@@ -130,6 +168,8 @@ class MainWindow(QWidget):
         # Training grid: arrows, enter, escape
         if isinstance(view, TrainingGridView):
             if key in (Qt.Key.Key_Left, Qt.Key.Key_Right, Qt.Key.Key_Up, Qt.Key.Key_Down):
+                old_x, old_y = view.current_x, view.current_y
+                was_centered = self._is_grid_window_centered(view, 5)
                 direction = {
                     Qt.Key.Key_Left: GridMove.LEFT,
                     Qt.Key.Key_Right: GridMove.RIGHT,
@@ -137,15 +177,28 @@ class MainWindow(QWidget):
                     Qt.Key.Key_Down: GridMove.DOWN,
                 }[key]
                 self._screen = self._screen.move(direction)
+                new_view = self._screen.view
+                if isinstance(new_view, TrainingGridView) and (
+                    new_view.current_x != old_x or new_view.current_y != old_y
+                ):
+                    self._last_grid_move = direction
+                    self._last_grid_centered_before = was_centered
+                else:
+                    self._last_grid_move = None
+                    self._last_grid_centered_before = None
                 self._render()
                 return
 
             if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self._last_grid_move = None
+                self._last_grid_centered_before = None
                 self._screen = self._screen.enter()
                 self._render()
                 return
 
             if key == Qt.Key.Key_Escape:
+                self._last_grid_move = None
+                self._last_grid_centered_before = None
                 self._screen = self._screen.escape()
                 self._render()
                 return
@@ -153,6 +206,8 @@ class MainWindow(QWidget):
         # Question: escape handled here, Enter handled via QLineEdit
         if isinstance(view, QuestionView):
             if key == Qt.Key.Key_Escape:
+                self._last_grid_move = None
+                self._last_grid_centered_before = None
                 self._screen = self._screen.escape()
                 self._render()
                 return
@@ -296,6 +351,26 @@ class MainWindow(QWidget):
         self._clear_content()
         self._title_label.setText(view.title)
 
+        if not view.grid:
+            empty = QLabel("No rooms available")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._content_layout.addWidget(empty)
+            return
+
+        room_w, room_h = 130, 110
+        corridor_size = 24
+        max_window = 5
+        x_start, x_end, y_start, y_end = self._grid_window(view, max_window)
+
+        def _in_window(room: Room) -> bool:
+            return x_start <= room.difficulty <= x_end and y_start <= room.time_pressure <= y_end
+
+        cols = x_end - x_start + 1
+        rows = y_end - y_start + 1
+        total_w = cols * room_w + max(0, cols - 1) * corridor_size
+        total_h = rows * room_h + max(0, rows - 1) * corridor_size
+        window_centered = self._is_grid_window_centered(view, max_window)
+
         grid_widget = QWidget()
         grid_layout = QGridLayout(grid_widget)
         grid_layout.setSpacing(0)
@@ -303,37 +378,138 @@ class MainWindow(QWidget):
         for room, cell in view.grid.items():
             if isinstance(cell, Locked):
                 continue
+            if not _in_window(room):
+                continue
             room_widget = self._build_room_widget(view, room, cell)
             grid_layout.addWidget(
                 room_widget,
-                (room.time_pressure - 1) * 2,
-                (room.difficulty - 1) * 2,
+                (room.time_pressure - y_start) * 2,
+                (room.difficulty - x_start) * 2,
             )
 
         for room, cell in view.grid.items():
+            if not _in_window(room):
+                continue
             right_neighbor = Room(difficulty=room.difficulty + 1, time_pressure=room.time_pressure)
-            if right_neighbor in view.grid:
+            if right_neighbor in view.grid and _in_window(right_neighbor):
                 right_open = isinstance(view.grid[right_neighbor], Unlocked)
                 corridor = self._corridor_widget(is_open=right_open, vertical=False)
                 grid_layout.addWidget(
                     corridor,
-                    (room.time_pressure - 1) * 2,
-                    (room.difficulty - 1) * 2 + 1,
+                    (room.time_pressure - y_start) * 2,
+                    (room.difficulty - x_start) * 2 + 1,
                     alignment=Qt.AlignmentFlag.AlignCenter,
                 )
 
             down_neighbor = Room(difficulty=room.difficulty, time_pressure=room.time_pressure + 1)
-            if down_neighbor in view.grid:
+            if down_neighbor in view.grid and _in_window(down_neighbor):
                 down_open = isinstance(view.grid[down_neighbor], Unlocked)
                 corridor = self._corridor_widget(is_open=down_open, vertical=True)
                 grid_layout.addWidget(
                     corridor,
-                    (room.time_pressure - 1) * 2 + 1,
-                    (room.difficulty - 1) * 2,
+                    (room.time_pressure - y_start) * 2 + 1,
+                    (room.difficulty - x_start) * 2,
                     alignment=Qt.AlignmentFlag.AlignCenter,
                 )
 
-        self._content_layout.addWidget(grid_widget)
+        grid_widget.setFixedSize(total_w, total_h)
+
+        viewport = QWidget()
+        viewport.setFixedSize(total_w, total_h)
+        grid_widget.setParent(viewport)
+
+        offset_x = 0
+        offset_y = 0
+        step_x = room_w + corridor_size
+        step_y = room_h + corridor_size
+        if self._last_grid_move == GridMove.LEFT:
+            offset_x = step_x
+        elif self._last_grid_move == GridMove.RIGHT:
+            offset_x = -step_x
+        elif self._last_grid_move == GridMove.UP:
+            offset_y = step_y
+        elif self._last_grid_move == GridMove.DOWN:
+            offset_y = -step_y
+
+        if self._grid_anim is not None:
+            self._grid_anim.stop()
+            self._grid_anim = None
+
+        if self._turtle_anim is not None:
+            self._turtle_anim.stop()
+            self._turtle_anim = None
+
+        grid_widget.move(QPoint(offset_x, offset_y))
+        if (
+            window_centered
+            and self._last_grid_centered_before
+            and (offset_x != 0 or offset_y != 0)
+        ):
+            anim = QPropertyAnimation(grid_widget, b"pos", self)
+            anim.setDuration(240)
+            anim.setStartValue(QPoint(offset_x, offset_y))
+            anim.setEndValue(QPoint(0, 0))
+            anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+            anim.start()
+            self._grid_anim = anim
+        else:
+            grid_widget.move(QPoint(0, 0))
+
+        turtle_lbl = QLabel("🐢", parent=viewport)
+        turtle_lbl.setFont(QFont("Segoe UI Emoji", 16))
+        turtle_lbl.adjustSize()
+        turtle_size = turtle_lbl.sizeHint()
+        turtle_margin_x = max(0, (room_w - turtle_size.width()) // 2)
+        turtle_margin_y = max(0, (room_h - turtle_size.height()) // 2)
+
+        def _cell_top_left(room: Room) -> QPoint:
+            col = room.difficulty - x_start
+            row = room.time_pressure - y_start
+            return QPoint(col * step_x, row * step_y)
+
+        def _turtle_pos(room: Room) -> QPoint:
+            top_left = _cell_top_left(room)
+            return QPoint(
+                top_left.x() + turtle_margin_x,
+                top_left.y() + turtle_margin_y,
+            )
+
+        current_room = Room(difficulty=view.current_x, time_pressure=view.current_y)
+        current_pos = _turtle_pos(current_room)
+
+        animate_turtle = (
+            self._last_grid_move is not None
+            and not (window_centered and self._last_grid_centered_before)
+        )
+        if animate_turtle:
+            if self._last_grid_move == GridMove.LEFT:
+                prev_room = Room(difficulty=view.current_x + 1, time_pressure=view.current_y)
+            elif self._last_grid_move == GridMove.RIGHT:
+                prev_room = Room(difficulty=view.current_x - 1, time_pressure=view.current_y)
+            elif self._last_grid_move == GridMove.UP:
+                prev_room = Room(difficulty=view.current_x, time_pressure=view.current_y + 1)
+            else:
+                prev_room = Room(difficulty=view.current_x, time_pressure=view.current_y - 1)
+
+            if _in_window(prev_room):
+                start_pos = _turtle_pos(prev_room)
+                turtle_lbl.move(start_pos)
+                anim = QPropertyAnimation(turtle_lbl, b"pos", self)
+                anim.setDuration(200)
+                anim.setStartValue(start_pos)
+                anim.setEndValue(current_pos)
+                anim.setEasingCurve(QEasingCurve.Type.InOutCubic)
+                anim.start()
+                self._turtle_anim = anim
+            else:
+                turtle_lbl.move(current_pos)
+        else:
+            turtle_lbl.move(current_pos)
+        turtle_lbl.raise_()
+
+        self._content_layout.addWidget(viewport, alignment=Qt.AlignmentFlag.AlignCenter)
+        self._last_grid_move = None
+        self._last_grid_centered_before = None
 
         hint = QLabel(view.hint or "Arrows to move, Enter to start, Esc to go back")
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -371,11 +547,6 @@ class MainWindow(QWidget):
         mastery_lbl = QLabel(_mastery_emoji(mastery_level) if mastery_level > 0 else "⬜")
         mastery_lbl.setFont(QFont("Segoe UI Emoji", 14))
         header.addWidget(mastery_lbl)
-
-        if is_current:
-            turtle_lbl = QLabel("🐢")
-            turtle_lbl.setFont(QFont("Segoe UI Emoji", 14))
-            header.addWidget(turtle_lbl)
 
         header.addStretch()
         layout.addLayout(header)
