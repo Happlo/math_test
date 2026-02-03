@@ -11,6 +11,7 @@ from ..plugin_api import (
     PluginFactory,
     PluginInfo,
     Question,
+    QuestionContent,
     QuestionResult,
 )
 
@@ -23,8 +24,10 @@ class NextCharQuestion:
     current_char: str
     expected_char: str
 
-    def read_question(self) -> str:
-        return f"Nästa bokstav efter '{self.current_char}' är:"
+    def read_question(self) -> QuestionContent:
+        return QuestionContent(
+            question_text=f"Nästa bokstav efter '{self.current_char}' är:"
+        )
 
     def answer_question(self, answer: str) -> QuestionResult:
         raw = answer.strip()

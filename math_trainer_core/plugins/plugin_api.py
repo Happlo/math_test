@@ -5,6 +5,8 @@ from enum import Enum, auto
 from typing import Protocol, List, Union
 from pathlib import Path
 
+from ..api_types import QuestionContent
+
 @dataclass(frozen=True)
 class Chapters:
     chapters: List[str]
@@ -54,8 +56,9 @@ class QuestionResult:
     result: AnswerResult
     display_answer_text: str
 
+
 class Question(Protocol):
-    def read_question(self) -> str: ...
+    def read_question(self) -> QuestionContent: ...
     def answer_question(self, answer: str) -> QuestionResult: ...
     def reveal_answer(self) -> QuestionResult: ...
 

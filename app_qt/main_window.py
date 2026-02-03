@@ -12,7 +12,7 @@ Qt.Key.Key_Enter
 Qt.Key.Key_Escape
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QPoint, QEasingCurve
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
     QWidget,
     QLabel,
@@ -586,6 +586,32 @@ class MainWindow(QWidget):
         q_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         q_lbl.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         self._content_layout.addWidget(q_lbl)
+
+        # Pictures (if any)
+        if view.optional_question_pictures:
+            max_width = max(200, min(640, self.width() - 80))
+            for item in view.optional_question_pictures:
+                pixmap = QPixmap(str(item.picture))
+                if pixmap.isNull():
+                    missing_lbl = QLabel(f"[missing image: {item.picture}]")
+                    missing_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    missing_lbl.setFont(QFont("Segoe UI", 10))
+                    self._content_layout.addWidget(missing_lbl)
+                else:
+                    image_lbl = QLabel()
+                    image_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    image_lbl.setPixmap(
+                        pixmap.scaledToWidth(
+                            max_width, Qt.TransformationMode.SmoothTransformation
+                        )
+                    )
+                    self._content_layout.addWidget(image_lbl)
+
+                if item.optional_text:
+                    caption_lbl = QLabel(item.optional_text)
+                    caption_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    caption_lbl.setFont(QFont("Segoe UI", 12))
+                    self._content_layout.addWidget(caption_lbl)
 
         # Answer input
         self._answer_edit = QLineEdit()

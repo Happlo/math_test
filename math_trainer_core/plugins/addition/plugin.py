@@ -11,6 +11,7 @@ from ..plugin_api import (
     PluginFactory,
     PluginInfo,
     Question,
+    QuestionContent,
     QuestionResult,
 )
 
@@ -42,8 +43,8 @@ class PlusQuestion:
 
         return "\n".join(lines)
 
-    def read_question(self) -> str:
-        return self._format_stacked()
+    def read_question(self) -> QuestionContent:
+        return QuestionContent(question_text=self._format_stacked())
 
     def answer_question(self, answer: str) -> QuestionResult:
         correct = self.a + self.b

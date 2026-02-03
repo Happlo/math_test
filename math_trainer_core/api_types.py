@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
+from pathlib import Path
 from typing import Optional, Protocol, Union, List
 
 
@@ -43,13 +44,21 @@ class NextEvent:
     """User wants to proceed after feedback."""
     pass
 
+@dataclass(frozen=True)
+class PictureWithText:
+    picture: Path
+    optional_text: str | None
 
-QuestionEvent = Union[RefreshEvent, AnswerEvent, NextEvent]
 
+@dataclass(frozen=True)
+class QuestionContent:
+    question_text: str
+    optional_pictures: List[PictureWithText] = field(default_factory=list)
 
 @dataclass
 class QuestionView:
     question_text: str
+    optional_question_pictures: List[PictureWithText]  # Can be empty
     feedback_text: str
     current_streak: int
     highest_streak: int
@@ -60,6 +69,7 @@ class QuestionView:
     input_enabled: bool
     time: Optional[QuestionTime]
 
+QuestionEvent = Union[RefreshEvent, AnswerEvent, NextEvent]
 
 class QuestionScreen(Protocol):
     @property

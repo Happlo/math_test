@@ -11,6 +11,7 @@ from ..plugin_api import (
     PluginFactory,
     PluginInfo,
     Question,
+    QuestionContent,
     QuestionResult,
 )
 
@@ -20,8 +21,8 @@ class MultiplicationQuestion:
     a: int
     b: int
 
-    def read_question(self) -> str:
-        return f"{self.a} x {self.b} ="
+    def read_question(self) -> QuestionContent:
+        return QuestionContent(question_text=f"{self.a} x {self.b} =")
 
     def answer_question(self, answer: str) -> QuestionResult:
         correct = self.a * self.b

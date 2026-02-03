@@ -12,7 +12,7 @@ from ..api_types import (
     AnswerEvent,
     NextEvent,
 )
-from ..plugins.plugin_api import Plugin, AnswerResult, QuestionResult
+from ..plugins.plugin_api import Plugin, AnswerResult, QuestionResult, QuestionContent
 
 
 DEFAULT_TIME_LIMIT_MS: Optional[int] = None  # e.g. 5000 for 5 seconds
@@ -53,6 +53,7 @@ class QuestionImpl:
         )
         self._view = QuestionView(
             question_text="",
+            optional_question_pictures=[],
             feedback_text="",
             current_streak=0,
             highest_streak=initial_highest,
@@ -128,10 +129,12 @@ class QuestionImpl:
             self._deadline_ms = None
             self._view.time = None
 
-        # render question text
+        # render question text + pictures
+        content: QuestionContent = self._question.read_question()
         self._view.question_text = (
-            f"Streak: {self._view.current_streak}\n{self._question.read_question()}"
+            f"Streak: {self._view.current_streak}\n{content.question_text}"
         )
+        self._view.optional_question_pictures = list(content.optional_pictures)
 
     def _handle_refresh(self) -> QuestionScreen:
         if self._awaiting_next:

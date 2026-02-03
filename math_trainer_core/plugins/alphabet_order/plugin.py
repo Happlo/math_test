@@ -12,6 +12,7 @@ from ..plugin_api import (
     PluginFactory,
     PluginInfo,
     Question,
+    QuestionContent,
     QuestionResult,
 )
 
@@ -24,9 +25,11 @@ class AlphabetOrderQuestion:
     shown: List[str]
     correct_order: List[str]
 
-    def read_question(self) -> str:
+    def read_question(self) -> QuestionContent:
         shown = " ".join(self.shown)
-        return f"Sätt bokstäverna i alfabetisk ordning:\n{shown}"
+        return QuestionContent(
+            question_text=f"Sätt bokstäverna i alfabetisk ordning:\n{shown}"
+        )
 
     def answer_question(self, answer: str) -> QuestionResult:
         raw = answer.strip().replace(" ", "")

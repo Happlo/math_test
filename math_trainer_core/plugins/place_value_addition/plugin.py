@@ -11,6 +11,7 @@ from ..plugin_api import (
     PluginFactory,
     PluginInfo,
     Question,
+    QuestionContent,
     QuestionResult,
 )
 
@@ -28,8 +29,8 @@ class PlaceValueQuestion:
         pad_len = max(0, width - len(text))
         return f"{self._FIGURE_SPACE * pad_len}{text}"
 
-    def read_question(self) -> str:
-        return self._format_stacked()
+    def read_question(self) -> QuestionContent:
+        return QuestionContent(question_text=self._format_stacked())
 
     def _format_stacked(self, answer: int | None = None) -> str:
         width = max(len(self._format_number(term)) for term in self.terms)
