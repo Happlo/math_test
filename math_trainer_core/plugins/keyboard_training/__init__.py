@@ -1,0 +1,1 @@
+"""Keyboard training plugin package."""
