@@ -11,7 +11,7 @@ Qt.Key.Key_Return
 Qt.Key.Key_Enter
 Qt.Key.Key_Escape
 
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QPoint, QEasingCurve
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QPoint, QEasingCurve, QEvent
 from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtWidgets import (
     QWidget,
@@ -605,7 +605,7 @@ class MainWindow(QWidget):
 
         # Pictures (if any)
         if view.optional_question_pictures:
-            max_width = max(200, min(640, self.width() - 80))
+            max_width = max(640, self.width() - 80)
             for item in view.optional_question_pictures:
                 pixmap = QPixmap(str(item.picture))
                 if pixmap.isNull():
