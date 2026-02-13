@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import random
 
 from math_trainer_core.api_types import PictureWithText
-from math_trainer_core.picture_helper import PictureRef, download_picture
+from math_trainer_core.core.picture_helper import PictureRef, download_picture
 from ..plugin_api import (
     AnswerResult,
     Difficulty,

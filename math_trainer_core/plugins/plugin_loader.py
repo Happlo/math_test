@@ -42,14 +42,13 @@ def load_plugin_factories() -> Dict[str, LoadedPlugin]:
 
         # Only load subpackages that provide a plugin.py module
         module_name = f"{package_name}.plugin"
-        try:
-            module = importlib.import_module(module_name)
-        except ModuleNotFoundError:
-            continue
+        module = importlib.import_module(module_name)
 
         factory = getattr(module, "PLUGIN_FACTORY", None)
         if factory is None:
-            continue
+            raise RuntimeError(
+                f"Plugin module '{module_name}' must define a 'PLUGIN_FACTORY' variable."
+            )
 
         info: PluginInfo = factory.PluginInfo()
 
