@@ -16,7 +16,7 @@ from ..api_types import (
     RoomGrid,
     TrainingId,
 )
-from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters
+from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters, AnswerButton
 from .question_impl import start_question_session, QuestionImpl
 from .user import save_user, StoredUserProfile
 
@@ -38,6 +38,7 @@ _TIME_LIMITS_MS: list[Optional[int]] = [
     500,
 ]
 _DEFAULT_REQUIRED_STREAK = 5
+_DEFAULT_ANSWER_BUTTONS = [AnswerButton.SPACE, AnswerButton.ENTER]
 
 
 def _level_count_for_mode(mode: Difficulty | Chapters) -> int:
@@ -123,6 +124,12 @@ class TrainingGridImpl(TrainingGridScreen):
         )
         self._rebuild_view()
         self._sync_profile()
+
+    def accepted_answer_buttons(self) -> List[AnswerButton]:
+        buttons = self._info.accepted_answer_buttons
+        if buttons is None:
+            return list(_DEFAULT_ANSWER_BUTTONS)
+        return list(buttons)
 
     @property
     def view(self) -> TrainingGridView:
@@ -325,6 +332,10 @@ class _QuestionWrapper(QuestionScreen):
     @property
     def possible_events(self):
         return self._inner.possible_events
+
+    @property
+    def accepted_answer_buttons(self):
+        return self._grid.accepted_answer_buttons()
 
     def handle(self, event):
         self._inner = self._inner.handle(event)

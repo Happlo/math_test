@@ -42,6 +42,7 @@ from math_trainer_core.api_types import (
     NextEvent,
     RefreshEvent,
 )
+from math_trainer_core.plugins.plugin_api import AnswerButton
 
 
 # Simple mapping for mastery level emoji
@@ -105,6 +106,21 @@ class MainWindow(QWidget):
         self._timer.start()
 
         self._render()
+
+    def _accepted_answer_buttons(self) -> List[AnswerButton]:
+        buttons = getattr(self._screen, "accepted_answer_buttons", None)
+        if buttons is None:
+            return [AnswerButton.SPACE, AnswerButton.ENTER]
+        return list(buttons)
+
+    def _accepted_answer_keys(self) -> set[Qt.Key]:
+        keys: set[Qt.Key] = set()
+        buttons = self._accepted_answer_buttons()
+        if AnswerButton.ENTER in buttons:
+            keys.update({Qt.Key.Key_Return, Qt.Key.Key_Enter})
+        if AnswerButton.SPACE in buttons:
+            keys.add(Qt.Key.Key_Space)
+        return keys
 
     # ------------------------------------------------------------------ GUI → core
     def _window_range(
@@ -211,7 +227,7 @@ class MainWindow(QWidget):
                 self._screen = self._screen.escape()
                 self._render()
                 return
-            if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            if key in self._accepted_answer_keys():
                 events = self._screen.possible_events
                 if view.input_enabled and AnswerEvent in events:
                     if self._answer_edit is not None and not self._answer_edit.hasFocus():
@@ -620,6 +636,7 @@ class MainWindow(QWidget):
         self._answer_edit.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._answer_edit.setReadOnly(not view.input_enabled)
         self._answer_edit.returnPressed.connect(self._on_answer_entered)
+        self._answer_edit.installEventFilter(self)
         if view.input_enabled and prev_text:
             self._answer_edit.setText(prev_text)
         self._content_layout.addWidget(self._answer_edit)
@@ -677,8 +694,26 @@ class MainWindow(QWidget):
 
         self._content_layout.addWidget(progress_widget)
 
-        hint = QLabel("Enter to answer / continue, Esc to go back")
+        hint = QLabel(self._question_hint_text())
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_layout.addWidget(hint)
 
         self._last_question_idx = view.question_idx
+
+    def _question_hint_text(self) -> str:
+        buttons = self._accepted_answer_buttons()
+        if AnswerButton.SPACE in buttons and AnswerButton.ENTER in buttons:
+            accept = "Enter/Space"
+        elif AnswerButton.SPACE in buttons:
+            accept = "Space"
+        else:
+            accept = "Enter"
+        return f"{accept} to answer / continue, Esc to go back"
+
+    def eventFilter(self, obj, event) -> bool:
+        if obj is self._answer_edit and event.type() == QEvent.Type.KeyPress:
+            if event.key() == Qt.Key.Key_Space:
+                if AnswerButton.SPACE in self._accepted_answer_buttons():
+                    self._on_answer_entered()
+                    return True
+        return super().eventFilter(obj, event)
