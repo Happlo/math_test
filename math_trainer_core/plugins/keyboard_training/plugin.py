@@ -21,7 +21,6 @@ from ..plugin_api import (
 _KEYBOARD_IMAGE_URL = (
     "https://raw.githubusercontent.com/frippz/wasd-iso-sv-aek2/refs/heads/master/WASD-ISO-SV-AEKII-light.png"
 )
-_KEYBOARD_IMAGE_SHA256 = "3a7417d09376e326a1a1eae0614ec2e9d07afcaede2cbfa49e5824a0fe41136e"
 # Ordered by increasing difficulty (rough touch-typing progression).
 _ALPHABET = "JFKDLSÖAHGEIRUWOTYQPÅZXCVBNMÄ,."
 
@@ -35,9 +34,7 @@ class KeyboardTrainingQuestion:
     letters: str
 
     def _picture(self) -> PictureWithText:
-        picture_path = download_picture(
-            PictureRef(url=_KEYBOARD_IMAGE_URL, sha256=_KEYBOARD_IMAGE_SHA256)
-        )
+        picture_path = download_picture(PictureRef(url=_KEYBOARD_IMAGE_URL))
         return PictureWithText(picture=picture_path, optional_text=None)
 
     def read_question(self) -> QuestionContent:
