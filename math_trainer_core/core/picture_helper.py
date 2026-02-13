@@ -5,10 +5,14 @@ import hashlib
 from pathlib import Path
 import tempfile
 from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 
 _DEFAULT_CACHE_DIR = Path(".picture_cache")
+_DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
 
 
 @dataclass(frozen=True)
@@ -48,16 +52,24 @@ def _extension_from_url(url: str) -> str:
 
 
 def _download_to_temp(url: str, cache_dir: Path, extension: str) -> Path:
-    with tempfile.NamedTemporaryFile(
-        mode="wb",
-        delete=False,
-        dir=cache_dir,
-        suffix=extension,
-    ) as tmp_file:
-        with urlopen(url) as response:
-            for chunk in iter(lambda: response.read(1024 * 1024), b""):
-                tmp_file.write(chunk)
-        return Path(tmp_file.name)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            delete=False,
+            dir=cache_dir,
+            suffix=extension,
+        ) as tmp_file:
+            temp_path = Path(tmp_file.name)
+            request = Request(url, headers={"User-Agent": _DEFAULT_USER_AGENT})
+            with urlopen(request, timeout=20) as response:
+                for chunk in iter(lambda: response.read(1024 * 1024), b""):
+                    tmp_file.write(chunk)
+        return temp_path
+    except Exception:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
 
 
 def _finalize_download(temp_path: Path, expected_path: Path) -> Path:

@@ -605,7 +605,10 @@ class MainWindow(QWidget):
 
         # Pictures (if any)
         if view.optional_question_pictures:
-            max_width = max(640, self.width() - 80)
+            # Keep pictures within the visible window area on Wayland/X11.
+            # Unbounded height requests can trigger compositor protocol errors.
+            max_width = min(1200, max(240, self.width() - 80))
+            max_height = min(700, max(220, self.height() - 280))
             for item in view.optional_question_pictures:
                 pixmap = QPixmap(str(item.picture))
                 if pixmap.isNull():
@@ -617,8 +620,11 @@ class MainWindow(QWidget):
                     image_lbl = QLabel()
                     image_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     image_lbl.setPixmap(
-                        pixmap.scaledToWidth(
-                            max_width, Qt.TransformationMode.SmoothTransformation
+                        pixmap.scaled(
+                            max_width,
+                            max_height,
+                            Qt.AspectRatioMode.KeepAspectRatio,
+                            Qt.TransformationMode.SmoothTransformation,
                         )
                     )
                     self._content_layout.addWidget(image_lbl)
