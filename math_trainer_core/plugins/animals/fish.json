@@ -9,7 +9,7 @@
   ],
   "abborre": [
     "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Perca_fluviatilis_2008_G1.jpg/640px-Perca_fluviatilis_2008_G1.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Perca_fluviatilis_01.jpg/640px-Perca_fluviatilis_01.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Perca_fluviatilis_-_Perche_commune_-_European_perch_Cropped.jpg/640px-Perca_fluviatilis_-_Perche_commune_-_European_perch_Cropped.jpg"
   ],
   "gädda": [
     "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Esox_Lucius.JPG/640px-Esox_Lucius.JPG",
@@ -18,5 +18,27 @@
   "makrill": [
     "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Scomber_scombrus.jpg/640px-Scomber_scombrus.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/FMIB_41562_Common_Mackerel_%28Scomber_scombrus%29.jpeg/640px-FMIB_41562_Common_Mackerel_%28Scomber_scombrus%29.jpeg"
+  ],
+  "stör": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Acipenser_oxyrhynchus.jpg/640px-Acipenser_oxyrhynchus.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Jeune_esturgeon_en_aquarium.jpg/640px-Jeune_esturgeon_en_aquarium.jpg"
+  ],
+  "öring": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Trout.jpg/640px-Trout.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Female_Rainbow_Trout_in_hand.JPG/640px-Female_Rainbow_Trout_in_hand.JPG"
+  ],
+  "sill": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Skipjack_herring_fish_alosa_chrysochloris_%28white_background%29.jpg/640px-Skipjack_herring_fish_alosa_chrysochloris_%28white_background%29.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/da/Herring-01.jpg/640px-Herring-01.jpg"
+  ],
+  "kattfisk": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/Channelcat.jpg/640px-Channelcat.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Zungaro_zungaro.jpg/640px-Zungaro_zungaro.jpg"
+  ],
+  "marulk": [
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Seeteufel.jpg/640px-Seeteufel.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Baudroie_%28Lophius%29_%28Ifremer_00677-78867_-_31685%29.jpg/640px-Baudroie_%28Lophius%29_%28Ifremer_00677-78867_-_31685%29.jpg"
   ]
+
+
 }
