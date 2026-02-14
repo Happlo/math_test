@@ -5,7 +5,7 @@ import random
 
 from ..plugin_api import (
     AnswerResult,
-    Chapters,
+    Chapter,
     EmojiIcon,
     Plugin,
     PluginFactory,
@@ -73,7 +73,7 @@ class NextCharPluginFactory:
             id="next_char_se",
             name="Nästa bokstav (svenska alfabetet)",
             description="Frågar efter nästa bokstav i svenska alfabetet (inkl. å, ä, ö).",
-            mode=Chapters(chapters=["Standard"]),
+            mode=[Chapter(name="Standard")],
             icon=EmojiIcon("🔤"),
             required_streak=None,
         )

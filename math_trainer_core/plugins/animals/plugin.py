@@ -10,7 +10,7 @@ from math_trainer_core.core.picture_helper import PictureRef, download_picture
 
 from ..plugin_api import (
     AnswerResult,
-    Chapters,
+    Chapter,
     EmojiIcon,
     Plugin,
     PluginFactory,
@@ -155,7 +155,10 @@ class AnimalsPluginFactory:
             id="animals",
             name="Animals",
             description="Gissa djuret pa bilden. Kapitel styr vilken JSON-fil som anvands.",
-            mode=Chapters(chapters=[name for name, _ in _CHAPTER_FILES]),
+            mode=[
+                Chapter(name=name, required_streak=len(_load_chapter_file(filename)))
+                for name, filename in _CHAPTER_FILES
+            ],
             icon=EmojiIcon("🐟"),
             required_streak=None,
         )

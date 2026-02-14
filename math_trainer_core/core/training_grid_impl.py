@@ -16,7 +16,7 @@ from ..api_types import (
     RoomGrid,
     TrainingId,
 )
-from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters, AnswerButton
+from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters, AnswerButton, Chapter
 from .question_impl import start_question_session, QuestionImpl
 from .user import save_user, StoredUserProfile
 
@@ -42,8 +42,8 @@ _DEFAULT_ANSWER_BUTTONS = [AnswerButton.SPACE, AnswerButton.ENTER]
 
 
 def _level_count_for_mode(mode: Difficulty | Chapters) -> int:
-    if isinstance(mode, Chapters):
-        return max(1, len(mode.chapters))
+    if isinstance(mode, list):
+        return max(1, len(mode))
     max_level = max(0, int(mode.max_level))
     if max_level == 0:
         return _DEFAULT_INFINITE_LEVELS
@@ -63,6 +63,24 @@ def _format_time_limit(time_limit_ms: Optional[int]) -> str:
     if time_limit_ms % 1000 == 0:
         return f"{int(seconds)}s"
     return f"{seconds:.1f}s"
+
+
+def _required_streak_for_level(
+    mode: Difficulty | Chapters,
+    level_index: int,
+    plugin_required_streak: int | None,
+) -> int:
+    if isinstance(mode, list):
+        if 0 <= level_index < len(mode):
+            chapter = mode[level_index]
+            if isinstance(chapter, Chapter) and chapter.required_streak is not None:
+                return max(1, int(chapter.required_streak))
+    else:
+        if mode.required_streak is not None:
+            return max(1, int(mode.required_streak))
+    if plugin_required_streak is not None:
+        return max(1, int(plugin_required_streak))
+    return _DEFAULT_REQUIRED_STREAK
 
 
 @dataclass(frozen=True)
@@ -101,8 +119,6 @@ class TrainingGridImpl(TrainingGridScreen):
             height=height,
             time_limits_ms=list(_TIME_LIMITS_MS),
         )
-        self._required_streak = max(1, info.required_streak or _DEFAULT_REQUIRED_STREAK)
-
         self._current_x = 1
         self._current_y = 1
         origin = Room(difficulty=1, time_pressure=1)
@@ -161,13 +177,18 @@ class TrainingGridImpl(TrainingGridScreen):
 
     def enter(self) -> QuestionScreen:
         level_index = self._difficulty_index(self._current_x)
+        required_streak = _required_streak_for_level(
+            mode=self._config.mode,
+            level_index=level_index,
+            plugin_required_streak=self._info.required_streak,
+        )
         time_limit_ms = self._time_limit_for_row(self._current_y)
         coord = Room(difficulty=self._current_x, time_pressure=self._current_y)
-        initial_highest = self._mastery_levels.get(coord, 0) * self._required_streak
+        initial_highest = self._mastery_levels.get(coord, 0) * required_streak
         inner = start_question_session(
             plugin=self._plugin,
             level_index=level_index,
-            streak_to_advance_mastery=self._required_streak,
+            streak_to_advance_mastery=required_streak,
             initial_highest_streak=initial_highest,
             time_limit_ms=time_limit_ms,
         )
@@ -238,10 +259,10 @@ class TrainingGridImpl(TrainingGridScreen):
                     self._mastery_levels[room] = mastery_level
 
     def _level_label(self, index: int) -> str:
-        if isinstance(self._config.mode, Chapters):
-            chapters = self._config.mode.chapters
+        if isinstance(self._config.mode, list):
+            chapters = self._config.mode
             if 0 <= index < len(chapters):
-                return chapters[index]
+                return chapters[index].name
             return f"Chapter {index + 1}"
         return f"Level {index + 1}"
 
@@ -250,7 +271,7 @@ class TrainingGridImpl(TrainingGridScreen):
         label = self._level_label(index)
         time_limit_ms = self._time_limit_for_row(self._current_y)
         time_text = _format_time_limit(time_limit_ms)
-        if isinstance(self._config.mode, Chapters):
+        if isinstance(self._config.mode, list):
             header = f"Chapter {index + 1}/{self._config.level_count}: {label}"
         else:
             if isinstance(self._config.mode, Difficulty) and self._config.mode.max_level == 0:

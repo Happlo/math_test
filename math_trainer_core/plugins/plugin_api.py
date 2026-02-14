@@ -8,12 +8,19 @@ from pathlib import Path
 from ..api_types import QuestionContent
 
 @dataclass(frozen=True)
-class Chapters:
-    chapters: List[str]
+class Chapter:
+    name: str
+    # Optional override for how many correct answers in a row are required
+    # to "advance" mastery chapter. If None, core uses its own default.
+    required_streak: int | None = None
 
+Chapters = List[Chapter]
 @dataclass(frozen=True)
 class Difficulty:
     max_level: int  # 0 for infinite
+    # Optional override for how many correct answers in a row are required
+    # to "advance" mastery chapter. If None, core uses its own default.
+    required_streak: int | None = None
 
 Mode = Union[Chapters, Difficulty]
 
