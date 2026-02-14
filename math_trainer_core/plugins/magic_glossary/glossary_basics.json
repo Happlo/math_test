@@ -1,0 +1,15 @@
+{
+  "creature": "varelse",
+  "spell": "besvarjelse",
+  "land": "land",
+  "mana": "mana",
+  "artifact": "artefakt",
+  "enchantment": "fortrollning",
+  "sorcery": "sorcery",
+  "instant": "instant",
+  "flying": "flygande",
+  "trample": "trampa over",
+  "lifelink": "livslank",
+  "deathtouch": "dodlig beroring"
+}
+
