@@ -79,6 +79,8 @@ class Question(Protocol):
 
 class Plugin(Protocol):
     def make_question(self, difficulty_or_chapter: int) -> Question: ...
+    # Optional method to reset plugin state (e.g. for plugins with Chapters).
+    def reset(self) -> None: ...
 
 class PluginFactory(Protocol):
     @staticmethod

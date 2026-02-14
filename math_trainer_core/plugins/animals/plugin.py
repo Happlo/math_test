@@ -132,14 +132,38 @@ class AnimalsQuestion:
 class AnimalsPlugin(Plugin):
     def __init__(self, chapters: list[_ChapterData]):
         self._chapters = chapters
+        self._chapter_cycles: list[list[_AnimalEntry]] = [[] for _ in chapters]
+        self._chapter_positions: list[int] = [0 for _ in chapters]
+        self._last_chapter_index: int | None = None
+        for idx in range(len(self._chapters)):
+            self._reshuffle_chapter(idx)
+
+    def _reshuffle_chapter(self, chapter_index: int) -> None:
+        cycle = list(self._chapters[chapter_index].animals)
+        random.shuffle(cycle)
+        self._chapter_cycles[chapter_index] = cycle
+        self._chapter_positions[chapter_index] = 0
+
+    def _next_animal(self, chapter_index: int) -> _AnimalEntry:
+        if self._chapter_positions[chapter_index] >= len(self._chapter_cycles[chapter_index]):
+            self._reshuffle_chapter(chapter_index)
+        pos = self._chapter_positions[chapter_index]
+        self._chapter_positions[chapter_index] = pos + 1
+        return self._chapter_cycles[chapter_index][pos]
+
+    def reset(self) -> None:
+        if self._last_chapter_index is None:
+            return
+        self._reshuffle_chapter(self._last_chapter_index)
 
     def make_question(self, difficulty_or_chapter: int) -> Question:
         if not self._chapters:
             raise RuntimeError("Animals plugin has no chapters.")
 
         chapter_index = max(0, min(int(difficulty_or_chapter), len(self._chapters) - 1))
+        self._last_chapter_index = chapter_index
         chapter = self._chapters[chapter_index]
-        animal = random.choice(chapter.animals)
+        animal = self._next_animal(chapter_index)
 
         return AnimalsQuestion(
             prompt=f"Vilket djur ar det pa bilden?\nKapitel: {chapter.name}",

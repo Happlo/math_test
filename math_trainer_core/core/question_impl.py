@@ -182,6 +182,7 @@ class QuestionImpl:
             return self
 
         else:  # WRONG
+            self._reset_plugin_question_order()
             self._view.current_streak = 0
             self._view.progress[self._view.question_idx] = Progress.WRONG
             self._view.feedback_text = result.display_answer_text
@@ -206,6 +207,7 @@ class QuestionImpl:
         return self
 
     def _timeout(self) -> QuestionScreen:
+        self._reset_plugin_question_order()
         self._awaiting_next = True
         self._view.current_streak = 0
         self._view.progress[self._view.question_idx] = Progress.TIMED_OUT
@@ -217,6 +219,11 @@ class QuestionImpl:
         self._view.input_enabled = False
 
         return self
+
+    def _reset_plugin_question_order(self) -> None:
+        reset_fn = getattr(self._plugin, "reset", None)
+        if callable(reset_fn):
+            reset_fn()
 
 
 # ---------------------------------------------------------------------------
