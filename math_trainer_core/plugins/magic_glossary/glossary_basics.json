@@ -1,6 +1,6 @@
 {
   "creature": "varelse",
-  "spell": "besvarjelse",
+  "spell": "besvärjelse",
   "land": "land",
   "mana": "mana",
   "artifact": "artefakt",
@@ -8,8 +8,8 @@
   "sorcery": "sorcery",
   "instant": "instant",
   "flying": "flygande",
-  "trample": "trampa over",
+  "trample": "trampa över",
   "lifelink": "livslank",
-  "deathtouch": "dodlig beroring"
+  "deathtouch": "dödlig beröring"
 }
 

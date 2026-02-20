@@ -19,7 +19,7 @@ from ..picture_text_shared import (
 
 
 _CHAPTER_FILES: list[tuple[str, str]] = [
-    ("Fisk", "fish.json"),
+    ("Planeter", "planets.json"),
 ]
 
 
@@ -35,7 +35,7 @@ def _load_chapters() -> list[PictureTextChapter]:
     return load_picture_text_chapters(_plugin_dir(), _CHAPTER_FILES)
 
 
-class AnimalsPlugin(Plugin):
+class ThingsPlugin(Plugin):
     def __init__(self, chapters: list[PictureTextChapter]):
         self._cycle = PictureTextChapterCycle(chapters)
 
@@ -43,32 +43,32 @@ class AnimalsPlugin(Plugin):
         self._cycle.reset_last_chapter()
 
     def make_question(self, difficulty_or_chapter: int):
-        chapter, animal = self._cycle.next_for_chapter(difficulty_or_chapter)
+        chapter, entry = self._cycle.next_for_chapter(difficulty_or_chapter)
         return PictureTextQuestion(
-            prompt=f"Vilket djur ar det pa bilden?\nKapitel: {chapter.name}",
-            answer=animal.answer,
-            picture_urls=list(animal.picture_urls),
+            prompt=f"Vilken planet ar det pa bilden?\nKapitel: {chapter.name}",
+            answer=entry.answer,
+            picture_urls=list(entry.picture_urls),
         )
 
 
-class AnimalsPluginFactory:
+class ThingsPluginFactory:
     @staticmethod
     def PluginInfo() -> PluginInfo:
         return PluginInfo(
-            id="animals",
-            name="Animals",
-            description="Gissa djuret pa bilden. Kapitel styr vilken JSON-fil som anvands.",
+            id="things",
+            name="Things",
+            description="Gissa vilken sak det ar pa bilden. Startkapitel: planeter.",
             mode=[
                 Chapter(name=name, required_streak=len(_load_chapter_file(filename)))
                 for name, filename in _CHAPTER_FILES
             ],
-            icon=EmojiIcon("🐟"),
+            icon=EmojiIcon("🪐"),
             required_streak=None,
         )
 
     @staticmethod
     def CreatePlugin() -> Plugin:
-        return AnimalsPlugin(chapters=_load_chapters())
+        return ThingsPlugin(chapters=_load_chapters())
 
 
-PLUGIN_FACTORY: PluginFactory = AnimalsPluginFactory
+PLUGIN_FACTORY: PluginFactory = ThingsPluginFactory
