@@ -40,6 +40,13 @@ class AnswerEvent:
 
 
 @dataclass(frozen=True)
+class SpeechAnswerEvent:
+    """User submitted recorded speech as raw PCM audio."""
+    pcm_bytes: bytes
+    sample_rate: int
+
+
+@dataclass(frozen=True)
 class NextEvent:
     """User wants to proceed after feedback."""
     pass
@@ -69,7 +76,7 @@ class QuestionView:
     input_enabled: bool
     time: Optional[QuestionTime]
 
-QuestionEvent = Union[RefreshEvent, AnswerEvent, NextEvent]
+QuestionEvent = Union[RefreshEvent, AnswerEvent, SpeechAnswerEvent, NextEvent]
 
 class QuestionScreen(Protocol):
     @property

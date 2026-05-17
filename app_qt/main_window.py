@@ -20,9 +20,12 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QGridLayout,
     QLineEdit,
+    QPushButton,
     QFrame,
     QProgressBar,
 )
+
+from PyQt6.QtMultimedia import QAudioFormat, QAudioSource, QMediaDevices
 
 from math_trainer_core.api_types import (
     TrainingSelectScreen,
@@ -39,10 +42,11 @@ from math_trainer_core.api_types import (
     Locked,
     Unlocked,
     AnswerEvent,
+    SpeechAnswerEvent,
     NextEvent,
     RefreshEvent,
 )
-from math_trainer_core.plugins.plugin_api import AnswerButton
+from math_trainer_core.plugins.plugin_api import AnswerButton, AnswerInput
 
 
 # Simple mapping for mastery level emoji
@@ -78,6 +82,7 @@ class MainWindow(QWidget):
         super().__init__()
         self._screen: TrainingSelectScreen = screen
         self._answer_edit: Optional[QLineEdit] = None
+        self._record_button: Optional[QPushButton] = None
         self._last_question_idx: Optional[int] = None
         self._time_bar: Optional[QProgressBar] = None
         self._skip_next_enter: bool = False
@@ -85,6 +90,10 @@ class MainWindow(QWidget):
         self._last_grid_centered_before: Optional[bool] = None
         self._grid_anim: Optional[QPropertyAnimation] = None
         self._turtle_anim: Optional[QPropertyAnimation] = None
+        self._audio_source = None
+        self._audio_device = None
+        self._speech_chunks: list[bytes] = []
+        self._speech_sample_rate = 16000
 
         self.setWindowTitle("Math Trainer")
 
@@ -112,6 +121,9 @@ class MainWindow(QWidget):
         if buttons is None:
             return [AnswerButton.SPACE, AnswerButton.ENTER]
         return list(buttons)
+
+    def _answer_input(self) -> AnswerInput:
+        return getattr(self._screen, "answer_input", AnswerInput.TEXT)
 
     def _accepted_answer_keys(self) -> set[Qt.Key]:
         keys: set[Qt.Key] = set()
@@ -230,6 +242,9 @@ class MainWindow(QWidget):
             if key in self._accepted_answer_keys():
                 events = self._screen.possible_events
                 if view.input_enabled and AnswerEvent in events:
+                    if self._answer_input() == AnswerInput.SPEECH_TO_TEXT:
+                        self._on_speech_answer_requested()
+                        return
                     if self._answer_edit is not None and not self._answer_edit.hasFocus():
                         self._answer_edit.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
                         return
@@ -255,6 +270,9 @@ class MainWindow(QWidget):
 
         # If we are in "answer" mode (input enabled)
         if view.input_enabled and AnswerEvent in events:
+            if self._answer_input() == AnswerInput.SPEECH_TO_TEXT:
+                self._on_speech_answer_requested()
+                return
             text = self._answer_edit.text() if self._answer_edit else ""
             self._screen = self._screen.handle(AnswerEvent(text=text))
             self._skip_next_enter = True
@@ -266,6 +284,86 @@ class MainWindow(QWidget):
             self._screen = self._screen.handle(NextEvent())
             self._render()
             return
+
+    def _on_speech_answer_requested(self) -> None:
+        if not isinstance(self._screen.view, QuestionView):
+            return
+        view: QuestionView = self._screen.view
+        events = self._screen.possible_events
+
+        if self._audio_source is not None:
+            return
+
+        if (not view.input_enabled) and NextEvent in events:
+            self._screen = self._screen.handle(NextEvent())
+            self._render()
+            return
+
+        if not view.input_enabled or SpeechAnswerEvent not in events:
+            return
+
+        audio_input = QMediaDevices.defaultAudioInput()
+        if audio_input.isNull():
+            if self._answer_edit is not None:
+                self._answer_edit.setText("No microphone found.")
+            return
+
+        audio_format = QAudioFormat()
+        audio_format.setSampleRate(self._speech_sample_rate)
+        audio_format.setChannelCount(1)
+        audio_format.setSampleFormat(QAudioFormat.SampleFormat.Int16)
+        if not audio_input.isFormatSupported(audio_format):
+            audio_format = audio_input.preferredFormat()
+            self._speech_sample_rate = audio_format.sampleRate()
+
+        self._speech_chunks = []
+        self._audio_source = QAudioSource(audio_input, audio_format, self)
+        self._audio_device = self._audio_source.start()
+        if self._audio_device is None:
+            self._audio_source = None
+            if self._answer_edit is not None:
+                self._answer_edit.setText("Could not start microphone.")
+            return
+
+        self._audio_device.readyRead.connect(self._read_speech_audio)
+        if self._answer_edit is not None:
+            self._answer_edit.setText("Recording...")
+        if self._record_button is not None:
+            self._record_button.setEnabled(False)
+            self._record_button.setText("Recording...")
+
+        QTimer.singleShot(2000, self._finish_speech_recording)
+
+    def _read_speech_audio(self) -> None:
+        if self._audio_device is None:
+            return
+        chunk = self._audio_device.readAll()
+        if chunk:
+            self._speech_chunks.append(bytes(chunk))
+
+    def _finish_speech_recording(self) -> None:
+        if self._audio_source is None:
+            return
+
+        self._read_speech_audio()
+        self._audio_source.stop()
+        self._audio_source = None
+        self._audio_device = None
+
+        pcm_bytes = b"".join(self._speech_chunks)
+        self._speech_chunks = []
+
+        if self._answer_edit is not None:
+            self._answer_edit.setText("Transcribing...")
+
+        if isinstance(self._screen.view, QuestionView):
+            self._screen = self._screen.handle(
+                SpeechAnswerEvent(
+                    pcm_bytes=pcm_bytes,
+                    sample_rate=self._speech_sample_rate,
+                )
+            )
+        self._render()
 
     def _on_timer(self) -> None:
         """Periodic timer -> RefreshEvent for question timer updates."""
@@ -312,6 +410,12 @@ class MainWindow(QWidget):
     # ------------------------------------------------------------------ Rendering
 
     def _clear_content(self) -> None:
+        if self._audio_source is not None:
+            self._audio_source.stop()
+            self._audio_source = None
+            self._audio_device = None
+            self._speech_chunks = []
+
         while self._content_layout.count():
             item = self._content_layout.takeAt(0)
             w = item.widget()
@@ -319,6 +423,7 @@ class MainWindow(QWidget):
                 w.deleteLater()
 
         self._answer_edit = None
+        self._record_button = None
         self._time_bar = None
 
     def _render(self) -> None:
@@ -636,16 +741,25 @@ class MainWindow(QWidget):
                     self._content_layout.addWidget(caption_lbl)
 
         # Answer input
+        speech_input = self._answer_input() == AnswerInput.SPEECH_TO_TEXT
         self._answer_edit = QLineEdit()
         self._answer_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._answer_edit.setFont(QFont("Segoe UI", 20))
         self._answer_edit.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self._answer_edit.setReadOnly(not view.input_enabled)
+        self._answer_edit.setReadOnly((not view.input_enabled) or speech_input)
         self._answer_edit.returnPressed.connect(self._on_answer_entered)
         self._answer_edit.installEventFilter(self)
+        if speech_input:
+            self._answer_edit.setPlaceholderText("Press Enter or Space to record")
         if view.input_enabled and prev_text:
             self._answer_edit.setText(prev_text)
         self._content_layout.addWidget(self._answer_edit)
+
+        if speech_input:
+            self._record_button = QPushButton("Record")
+            self._record_button.setEnabled(view.input_enabled)
+            self._record_button.clicked.connect(self._on_speech_answer_requested)
+            self._content_layout.addWidget(self._record_button)
 
         if view.time is not None:
             total_ms = max(1, view.time.time_per_question_ms)
@@ -714,6 +828,8 @@ class MainWindow(QWidget):
             accept = "Space"
         else:
             accept = "Enter"
+        if self._answer_input() == AnswerInput.SPEECH_TO_TEXT:
+            return f"{accept} to record / continue, Esc to go back"
         return f"{accept} to answer / continue, Esc to go back"
 
     def eventFilter(self, obj, event) -> bool:

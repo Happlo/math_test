@@ -10,9 +10,11 @@ from ..api_types import (
     QuestionEvent,
     RefreshEvent,
     AnswerEvent,
+    SpeechAnswerEvent,
     NextEvent,
 )
 from ..plugins.plugin_api import Plugin, AnswerResult, QuestionResult, QuestionContent
+from .speech_recognizer import SpeechRecognitionError, SpeechRecognizer
 
 
 DEFAULT_TIME_LIMIT_MS: Optional[int] = None  # e.g. 5000 for 5 seconds
@@ -40,10 +42,12 @@ class QuestionImpl:
         streak_to_advance_mastery: int,
         initial_highest_streak: int = 0,
         time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
+        speech_recognizer: SpeechRecognizer | None = None,
     ):
         self._plugin = plugin
         self._level_index = level_index
         self._time_limit_ms = time_limit_ms
+        self._speech_recognizer = speech_recognizer
         self._streak_to_advance_mastery = max(1, streak_to_advance_mastery)
 
         # Public view object, mutated in place
@@ -86,7 +90,7 @@ class QuestionImpl:
         if self._awaiting_next:
             return [NextEvent, RefreshEvent]
 
-        return [AnswerEvent, RefreshEvent]
+        return [AnswerEvent, SpeechAnswerEvent, RefreshEvent]
 
     def handle(self, event: QuestionEvent) -> QuestionScreen:
         if isinstance(event, RefreshEvent):
@@ -94,6 +98,9 @@ class QuestionImpl:
 
         if isinstance(event, AnswerEvent):
             return self._handle_answer(event.text)
+
+        if isinstance(event, SpeechAnswerEvent):
+            return self._handle_speech_answer(event)
 
         if isinstance(event, NextEvent):
             return self._handle_next()
@@ -162,7 +169,7 @@ class QuestionImpl:
         result: QuestionResult = self._question.answer_question(raw_answer)
 
         if result.result == AnswerResult.INVALID_INPUT:
-            self._view.feedback_text = "Please enter a valid number. 🙃"
+            self._view.feedback_text = result.display_answer_text
             return self  # stay on current question, still waiting for answer
 
         if result.result == AnswerResult.CORRECT:
@@ -193,6 +200,33 @@ class QuestionImpl:
         self._view.time = None  # stop showing timer
 
         return self
+
+    def _handle_speech_answer(self, event: SpeechAnswerEvent) -> QuestionScreen:
+        if self._awaiting_next:
+            return self
+
+        if self._deadline_ms is not None and _now_ms() >= self._deadline_ms:
+            return self._timeout()
+
+        if self._speech_recognizer is None:
+            self._view.feedback_text = "Speech recognition is not configured."
+            return self
+
+        try:
+            text = self._speech_recognizer.transcribe(
+                pcm_bytes=event.pcm_bytes,
+                sample_rate=event.sample_rate,
+            )
+        except SpeechRecognitionError as exc:
+            self._view.feedback_text = str(exc)
+            return self
+
+        if not text:
+            self._view.feedback_text = "I could not hear an answer."
+            return self
+
+        self._view.feedback_text = f"I heard: {text}"
+        return self._handle_answer(text)
 
     def _handle_next(self) -> QuestionScreen:
         if not self._awaiting_next:
@@ -236,6 +270,7 @@ def start_question_session(
     streak_to_advance_mastery: int,
     initial_highest_streak: int = 0,
     time_limit_ms: Optional[int] = DEFAULT_TIME_LIMIT_MS,
+    speech_recognizer: SpeechRecognizer | None = None,
 ):
     """
     Core entry point for the training grid implementation:
@@ -250,4 +285,5 @@ def start_question_session(
         streak_to_advance_mastery=streak_to_advance_mastery,
         initial_highest_streak=initial_highest_streak,
         time_limit_ms=time_limit_ms,
+        speech_recognizer=speech_recognizer,
     )

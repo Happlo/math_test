@@ -46,6 +46,10 @@ class AnswerButton(Enum):
     SPACE = auto()
     ENTER = auto()
 
+class AnswerInput(Enum):
+    TEXT = auto()
+    SPEECH_TO_TEXT = auto()
+
 
 @dataclass(frozen=True)
 class PluginInfo:
@@ -57,6 +61,8 @@ class PluginInfo:
     # Optional override for how many correct answers in a row are required
     # to "clear" a level/session. If None, core uses its own default.
     required_streak: int | None = None
+    # Can answer by either typed text or speech.
+    answer_input: AnswerInput = AnswerInput.TEXT
     # Space and enter are used by default as accepted answer buttons.
     # This can be overridden by the plugin if needed.
     accepted_answer_buttons: List[AnswerButton] | None = None

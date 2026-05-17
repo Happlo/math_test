@@ -16,8 +16,17 @@ from ..api_types import (
     RoomGrid,
     TrainingId,
 )
-from ..plugins.plugin_api import Plugin, PluginInfo, Difficulty, Chapters, AnswerButton, Chapter
+from ..plugins.plugin_api import (
+    Plugin,
+    PluginInfo,
+    Difficulty,
+    Chapters,
+    AnswerButton,
+    AnswerInput,
+    Chapter,
+)
 from .question_impl import start_question_session, QuestionImpl
+from .speech_recognizer import SpeechRecognizer, create_default_speech_recognizer
 from .user import save_user, StoredUserProfile
 
 
@@ -112,6 +121,9 @@ class TrainingGridImpl(TrainingGridScreen):
         self._parent_select = parent_select
         self._profile = user_profile
         self._training_id = training_id
+        self._speech_recognizer: SpeechRecognizer | None = None
+        if info.answer_input == AnswerInput.SPEECH_TO_TEXT:
+            self._speech_recognizer = create_default_speech_recognizer()
 
         level_count = _level_count_for_mode(info.mode)
         width, height = _grid_dimensions(level_count)
@@ -151,6 +163,9 @@ class TrainingGridImpl(TrainingGridScreen):
             return list(_DEFAULT_ANSWER_BUTTONS)
         return list(buttons)
 
+    def answer_input(self) -> AnswerInput:
+        return self._info.answer_input
+
     @property
     def view(self) -> TrainingGridView:
         return self._view
@@ -184,6 +199,7 @@ class TrainingGridImpl(TrainingGridScreen):
             streak_to_advance_mastery=required_streak,
             initial_highest_streak=initial_highest,
             time_limit_ms=time_limit_ms,
+            speech_recognizer=self._speech_recognizer,
         )
         return _QuestionWrapper(inner=inner, grid=self, coord=coord)
 
@@ -374,6 +390,10 @@ class _QuestionWrapper(QuestionScreen):
     @property
     def accepted_answer_buttons(self):
         return self._grid.accepted_answer_buttons()
+
+    @property
+    def answer_input(self):
+        return self._grid.answer_input()
 
     def handle(self, event):
         self._inner = self._inner.handle(event)

@@ -1,0 +1,38 @@
+{
+  "Korta ord": [
+    "sol",
+    "bil",
+    "hus",
+    "bok",
+    "sko",
+    "ko",
+    "is",
+    "ros",
+    "mat",
+    "tak"
+  ],
+  "Lätta ord": [
+    "måne",
+    "kaka",
+    "lampa",
+    "fisk",
+    "boll",
+    "väska",
+    "mamma",
+    "pappa",
+    "skola",
+    "stol"
+  ],
+  "Å Ä Ö": [
+    "åka",
+    "öga",
+    "öra",
+    "älg",
+    "äpple",
+    "båt",
+    "får",
+    "snö",
+    "gröt",
+    "blå"
+  ]
+}
